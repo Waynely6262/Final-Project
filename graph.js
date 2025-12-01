@@ -47,20 +47,148 @@ let bar_width_memo = {};     // same semantics as Python
 function assert(condition, message) { // functions like the lua 'assert' function
     if (!condition) {
         console.error(message || "Assertion failed! (No message provided)");
+        throw new Error(message || "Assertion failed! (No message provided)");
     }
     return condition;
 }
 
-function getHtmlSrc(data) {
+// Default easing function
+function easeInOutQuad(t) {
+    return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+}
 
+// Tweens from one number to another, with a handler and an optional onComplete callback for chaining
+function TweenNumber(start, end, duration, ease, onUpdate, onComplete) {
+    ease = ease || easeInOutQuad;
+    duration = duration || 500;
+    
+    const startTime = performance.now();
+    
+    function onRenderStep() {
+        const currentTime = performance.now();
+        const dt = currentTime - startTime;
+        const alpha = Math.min(dt / duration, 1);
+        const eased = ease(alpha);
+        const currentValue = start + (end - start) * eased;
+        onUpdate(currentValue);
+        if (alpha >= 1) {
+            if (onComplete) onComplete();
+        } else {
+            requestAnimationFrame(onRenderStep);
+        }
+    }
+    
+    requestAnimationFrame(onRenderStep);
+}
+
+
+function waitForElementById(id, onFound) {
+    
+    let element = document.getElementById(id);
+    if (element) {
+        onFound(element);
+    } else {
+        const elementFinder = new MutationObserver((mutations, self) => {
+            for (const mutation of mutations) {
+                for (const node of mutation.addedNodes) {
+                    if (node instanceof HTMLElement && node.id === id) {
+                        onFound(node);
+                        self.disconnect();
+                        return;
+                    }
+                }
+            }
+        });
+        
+        elementFinder.observe(document.documentElement || document, { childList: true, subtree: true });
+    }   
+}
+
+// Animates swapping two div elements. Does not handle clean up or cloning
+function animateSwapElements(div1, div2, duration, ease, onComplete) {
+    
+    duration = duration || 500;
+    
+    const overlayRect = graphOverlay.getBoundingClientRect();
+    const rect1 = div1.getBoundingClientRect();
+    const rect2 = div2.getBoundingClientRect();
+
+    const x1 = rect1.left - overlayRect.left;
+    const y1 = rect1.bottom - overlayRect.bottom;
+
+    const x2 = rect2.left - overlayRect.left;
+    const y2 = rect2.bottom - overlayRect.bottom;
+    
+    const deltaX = x2 - x1;
+    const deltaY = y2 - y1;
+    
+    // Convert clones to absolute coordinates
+    div1.style.position = "absolute";
+    div2.style.position = "absolute";
+
+    div1.style.left = x1 + "px";
+    div1.style.top = y1 + "px";
+    
+    div2.style.left = x2 + "px";
+    div2.style.top = y2 + "px";
+    
+    TweenNumber(0, 1, duration, ease, (t) => {
+        div1.style.transform = `translate(${deltaX * t}px, ${deltaY * t}px)`;
+        div2.style.transform = `translate(${-deltaX * t}px, ${-deltaY * t}px)`;
+    }, () => {
+        div1.style.transform = "";
+        div2.style.transform = "";
+        if (onComplete) onComplete();
+    });
+}
+
+
+// Elements that are required, but not necessarily available at script load time
+
+let dataHolderElement; // Group 1 (Main)
+let graphElement; // Group 2 (Main)
+let barContainer; // Group 2
+let graphOverlay; // Group 2
+
+
+function copyElementToOverlay(original) {
+    assert(graphOverlay, "Graph overlay not ready!");
+
+    // Get bounding box relative to viewport
+    const rect = original.getBoundingClientRect();
+
+    // Clone the node
+    const clone = original.cloneNode(true);
+
+    // Reset positioning context
+    clone.style.position = "absolute";
+    clone.style.margin = "0";
+    clone.style.left = rect.left + window.scrollX + "px";
+    clone.style.bottom = rect.bottom + window.scrollY + "px";
+    clone.style.width = rect.width + "px";
+    clone.style.height = rect.height + "px";
+
+    // Ensure it displays identically
+    const computed = window.getComputedStyle(original);
+    clone.style.zIndex = computed.zIndex === "auto" ? 9999 : computed.zIndex;
+
+    // Append to body
+    graphOverlay.appendChild(clone);
+
+    return clone;
+}
+
+// Functions that require the above elements
+function updateBars(data) {
+    assert(barContainer, "Bar container not ready!");
     const arr = data.arr;
     const length = arr.length;
-
+    
     let borderRadius = MAX_BORDER_RADIUS;
-
+    
     // Try cached width
     let widthPerBar = bar_width_memo[length] || borderRadius * 2;
-
+    
     // While width is too small, reduce border radius
     while (widthPerBar <= borderRadius * 2) {
         borderRadius = Math.floor(borderRadius / 2);
@@ -69,28 +197,28 @@ function getHtmlSrc(data) {
             1
         );
     }
-
+    
     // Cache the result
     bar_width_memo[length] = widthPerBar;
-
-    // Build the main container div
-    let html = `<div style="display:flex;justify-content:center;align-items:flex-end;height:${TOTAL_HEIGHT_PX}px;gap:${borderRadius}px;">`;
-
+    
+    // Update dynamic properties of the container div
+    barContainer.style.gap = `${borderRadius}px`;
+    
     // Compute height scaling
     let maxVal = Math.max(Math.max(...arr, 4), 4);
     let heightFactor = 1 / maxVal;
-
+    
     let pivotVal = null;
     if (data.pv !== null && data.pv !== undefined)
         pivotVal = arr[data.pv];
 
-    // Build each bar
+    // Build/update bars
     for (let i = 0; i < arr.length; i++) {
         const v = arr[i];
         const height = Math.floor(v * heightFactor * 100);
-
+        
         let color = null;
-
+        
         if (data.partitioning) {
             if (i >= data.i0 && i < data.i1) {
                 // within range
@@ -101,7 +229,7 @@ function getHtmlSrc(data) {
         }
 
         if (!color) color = DEFAULT_ELEMENT_COLOR;
-
+        
         // Highlight on swap
         if (i === data.s0 || i === data.s1) {
             if (data.swapping) {
@@ -111,56 +239,100 @@ function getHtmlSrc(data) {
             }
         }
 
-        html += `
-        <div style="
-            width:${widthPerBar}px;
-            height:${height}%;
-            background-color:${color.toHex()};
-            border-radius:${borderRadius}px;">
-        </div>`;
-    }
-
-    html += `</div>`;
-    return html;
-}
-
-let graphElement = document.getElementById("graph");
-function buildGraph() {
-    const data = getData();
-    graphElement = graphElement || assert(document.getElementById("graph"), `Graph container element not found; are you using "graph" as the element ID?`);
-    graphElement.innerHTML = getHtmlSrc(data);
-}
-
-
-
-function onDataHolderFound(dataHolderElement) {
-    // Expect that dataHolderElement is now valid; possibly redundant lol
-    assert(dataHolderElement, "Data holder element not found but onDataHolderFound was called?");
-    
-    new MutationObserver((mutations, self) => {
-        buildGraph();
-    }).observe(dataHolderElement, { characterData: true, childList: true, subtree: true });
-
-    // Initial build
-    buildGraph();
-    
-}
-
-let dataHolderElement = document.getElementById("graph-data"); // won't exist at first load, but this line makes it clear what we're looking for
-if (dataHolderElement) {
-    onDataHolderFound(dataHolderElement);
-} else {
-    const dataHolderFinder = new MutationObserver((mutations, self) => {
-        for (const mutation of mutations) {
-            for (const node of mutation.addedNodes) {
-                if (node instanceof HTMLElement && node.id === "graph-data") {
-                    onDataHolderFound(node);
-                    self.disconnect();
-                    return;
-                }
-            }
+        let barElement = barContainer.children[i]
+        
+        if (!barElement) {
+            barElement = document.createElement("div");
+            barContainer.appendChild(barElement);
         }
-    });
-
-    dataHolderFinder.observe(document.documentElement || document, { childList: true, subtree: true });
+        barElement.style.width = `${widthPerBar}px`;
+        barElement.style.height = `${height}%`;
+        barElement.style.backgroundColor = color.toHex();
+        barElement.style.borderRadius = `${borderRadius}px`;
+    }
+    
+    // Remove excess bars. Another solution is to just hide extra bars
+    while (barContainer.children.length > arr.length) {
+        barContainer.removeChild(barContainer.lastChild);
+    }
 }
+
+function animateSwap(index1, index2, duration) {
+    assert(graphElement, "Graph element not ready!");
+    assert(barContainer, "Bar container not ready!");
+    assert(graphOverlay, "Graph overlay not ready!");
+    duration = duration || 500;
+    
+    const bars = barContainer.children;
+    const bar1 = copyElementToOverlay(assert(bars[index1], `Bar at i0 ${index1} not found`));
+    const bar2 = copyElementToOverlay(assert(bars[index2], `Bar at i1 ${index2} not found`));
+
+    // bar1.style.position = "absolute";
+    // bar2.style.position = "absolute";
+    
+    // graphOverlay.appendChild(bar1);
+    // graphOverlay.appendChild(bar2);
+    
+    animateSwapElements(bar1, bar2, duration, easeInOutQuad, () => {
+        bar1.remove();
+        bar2.remove();
+    });
+    
+}
+
+function update() {
+    assert(dataHolderElement, "Data holder element not ready!");
+    // dataElement is expected to be a <script> with JSON content in its innerHTML
+    const data = JSON.parse(dataHolderElement.innerHTML);
+
+    assert(graphElement, `Graph container element not found; are you using "graph" as the element ID?`);
+
+    updateBars(data);
+    
+    if (data.swapping) animateSwap(data.s0, data.s1, 1000 /*Use wait_interval here*/);
+}
+
+// Main
+
+// Group 1;Will initialize dataHolderElement
+waitForElementById("graph-data", (ele) => {
+    dataHolderElement = ele;
+
+    new MutationObserver((mutations, self) => {
+        update();
+    }).observe(dataHolderElement, { characterData: true, childList: true, subtree: true });
+    // Initial build
+    update();
+});
+
+// Group 2; Will initialize graphElement, barContainer, graphOverlay
+waitForElementById("graph", (ele) => {
+    graphElement = ele;
+
+    barContainer = document.createElement("div");
+    barContainer.style.display = "flex";
+    barContainer.style.justifyContent = "center";
+    barContainer.style.alignItems = "flex-end";
+    barContainer.style.height = `${TOTAL_HEIGHT_PX}px`;
+    graphElement.appendChild(barContainer);
+    
+    
+    graphOverlay = document.createElement("div");
+    graphOverlay.style.position = "relative";
+    graphOverlay.style.top = "0";
+    graphOverlay.style.left = "0";
+    graphOverlay.style.width = "100%";
+    graphOverlay.style.height = "100%";
+    graphOverlay.style.pointerEvents = "none";
+    graphOverlay.style.transparent = "true";
+
+    graphOverlay.style.display = "block";
+    graphOverlay.style.margin = "0";
+    graphOverlay.style.padding = "0";
+    graphOverlay.style.textAlign = "left";
+
+    graphOverlay.id = "graph-overlay";
+    graphElement.appendChild(graphOverlay);
+    
+
+});
