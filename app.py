@@ -117,21 +117,9 @@ class VisualState:
     def __init__(self):
         self.arr = regenerate([])
 
-    def to_dict(self) -> dict[str, object]:
-
-        return {
-            "arr": self.arr,
-            "partitioning": self.partitioning,
-            "i0": self.i0,
-            "i1": self.i1,
-            "pv": self.pv,
-            "s0": self.s0,
-            "s1": self.s1,
-            "swapping": self.swapping
-        }
     
     def to_embedded_json(self) -> str:
-        json_src = json.dumps(self.to_dict())
+        json_src = json.dumps(self.__dict__)
         return f"<script id=\"{HTML_DATA_HOLDER_ELEMENT_ID}\" type=\"application/json\">{json_src}</script>"
     
 # bounded by 32-bit int lim.
@@ -283,6 +271,7 @@ def quick_sort_iterative(chart_info: VisualState, session_info: InternalState, s
         except StopIteration as result:
             # Get the pivot point's index
             pivot_index = result.value
+            yield True # Indicate that a job has finished
 
 
             
@@ -363,16 +352,17 @@ with gr.Blocks() as demo:
         try:
             while session_info.is_lock_owner(this_id):
                 # Under the assumption that chart_info's reference is maintained, we don't need any return values! However, it could still be worth noting where modifications are inexplicitly made.
-                next(quick_sort_generator) # modifies chart_info
+                job_finished = next(quick_sort_generator) # modifies chart_info
                 if show_swaps:
                     yield chart_info.to_embedded_json()
                     await wait(wait_interval)
+                elif job_finished:
+                    chart_info.partitioning = True
+                    yield chart_info.to_embedded_json()
+                    chart_info.partitioning = False
+                    await wait(wait_interval)
         except StopIteration as result:
-            if not show_swaps:
-                chart_info.partitioning = True
-                yield chart_info.to_embedded_json()
-                chart_info.partitioning = False
-                await wait(wait_interval)
+            pass
         
         # If this thread doesn't hold the latest call_id, exit to avoid interrupting a different UI update
         session_info.close_lock(this_id)
@@ -395,37 +385,32 @@ with gr.Blocks() as demo:
     async def sort_button_on_click(chart_info: VisualState, session_info: InternalState, wait_interval: float, show_swaps: bool, use_random_pivot: bool):
 
         # If pivot_alpha isn't 1, the sort function will unsort the array. This if statement will prevent that from happening
-        if is_sorted(chart_info.arr):
-            gr.Info("The array is fully sorted.")
-            return
+        if not is_sorted(chart_info.arr):
 
-        this_id = session_info.new_lock()
-
-        local_jobs = []
-        iteration_one = True
-        while session_info.is_lock_owner(this_id) and (local_jobs or iteration_one):
-            iteration_one = False
+            this_id = session_info.new_lock()
 
             quick_sort_generator = quick_sort_iterative(chart_info, session_info, use_random_pivot=use_random_pivot)
 
             try:
                 while session_info.is_lock_owner(this_id):
-                    next(quick_sort_generator) # modifies chart_info
+                    job_finished = next(quick_sort_generator) # modifies chart_info
                     if show_swaps:
                         yield chart_info.to_embedded_json()
-                        await wait(wait_interval) 
+                        await wait(wait_interval)
+                    elif job_finished:
+                        chart_info.partitioning = True
+                        yield chart_info.to_embedded_json()
+                        chart_info.partitioning = False
+                        await wait(wait_interval)
+
             except StopIteration as result:
-                local_jobs = result.value
-                # Only do this  if not showing swaps. Since the full-sort feature relies on creating a quick_sort_iterative generator with argument iterations_allowed=1, this function will call wait() too many times, reducing the animation speed.
-                if not show_swaps:
-                    chart_info.partitioning = True
-                    yield chart_info.to_embedded_json()
-                    chart_info.partitioning = False
-                    await wait(wait_interval)
+                pass
 
-        session_info.close_lock(this_id)
+            session_info.close_lock(this_id)
 
-        yield chart_info.to_embedded_json()
+            yield chart_info.to_embedded_json()
+        else:
+            gr.Info("The array is fully sorted.")
 
     sort_button.click(sort_button_on_click, [
         chart_info_state,

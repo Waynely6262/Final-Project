@@ -269,18 +269,23 @@ function animateSwap(index1, index2, duration) {
     duration = duration || 500;
     
     const bars = barContainer.children;
-    const bar1 = copyElementToOverlay(assert(bars[index1], `Bar at i0 ${index1} not found`));
-    const bar2 = copyElementToOverlay(assert(bars[index2], `Bar at i1 ${index2} not found`));
 
-    // bar1.style.position = "absolute";
-    // bar2.style.position = "absolute";
-    
-    // graphOverlay.appendChild(bar1);
-    // graphOverlay.appendChild(bar2);
+    const originalBar1 = assert(bars[index1], `Bar at i0 ${index1} not found`);
+    const originalBar2 = assert(bars[index2], `Bar at i1 ${index2} not found`);
+
+    const bar1 = copyElementToOverlay(originalBar1);
+    const bar2 = copyElementToOverlay(originalBar2);
+
+    originalBar1.style.visibility = "hidden";
+    originalBar2.style.visibility = "hidden";
+
     
     animateSwapElements(bar1, bar2, duration, easeInOutQuad, () => {
         bar1.remove();
         bar2.remove();
+
+        originalBar1.style.visibility = "visible";
+        originalBar2.style.visibility = "visible";
     });
     
 }
@@ -293,7 +298,7 @@ function update() {
     assert(graphElement, `Graph container element not found; are you using "graph" as the element ID?`);
 
     updateBars(data);
-    
+    console.log(data.dt * 1000);
     if (data.swapping) animateSwap(data.s0, data.s1, data.dt * 1000);
 }
 
