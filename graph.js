@@ -130,9 +130,11 @@ function animateSwapElements(div1, div2, duration, ease, onComplete) {
     div2.style.position = "absolute";
 
     div1.style.left = x1 + "px";
+    div1.style.bottom = "0";
     // div1.style.bottom = y1 + "px";
     
     div2.style.left = x2 + "px";
+    div2.style.bottom = "0";
     // div2.style.bottom = y2 + "px";
     
     TweenNumber(0, 1, duration, ease, (t) => {
