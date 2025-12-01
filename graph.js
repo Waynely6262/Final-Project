@@ -51,12 +51,6 @@ function assert(condition, message) { // functions like the lua 'assert' functio
     return condition;
 }
 
-function getData() { // attempts to get data from a hidden element that stores a JSON string
-    // The element is expected to be a <script>
-    const element = assert(document.getElementById("graph-data"), "Graph data not found; are you using \"graph-data\" as the element ID?");
-    return JSON.parse(element.innerHTML);
-}
-
 function getHtmlSrc(data) {
 
     const arr = data.arr;
@@ -130,14 +124,11 @@ function getHtmlSrc(data) {
     return html;
 }
 
+let graphElement = document.getElementById("graph");
 function buildGraph() {
-    console.log("Received buildGraph request, fetching data...");
     const data = getData();
-    console.log("Data fetched successfully.");
-    console.log(`Building graph (data: ${data})`); // test object
-
-    const element = assert(document.getElementById("graph"), `Graph container element not found; are you using "graph" as the element ID?`);
-    document.getElementById("graph").innerHTML = getHtmlSrc(data);
+    graphElement = graphElement || assert(document.getElementById("graph"), `Graph container element not found; are you using "graph" as the element ID?`);
+    graphElement.innerHTML = getHtmlSrc(data);
 }
 
 

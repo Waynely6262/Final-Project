@@ -130,7 +130,6 @@ class VisualState:
         }
     
     def to_embedded_json(self) -> str:
-        print("creating embedded json..")
         json_src = json.dumps(self.to_dict())
         return f"<script id=\"{HTML_DATA_HOLDER_ELEMENT_ID}\" type=\"application/json\">{json_src}</script>"
     
