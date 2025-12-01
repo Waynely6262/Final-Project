@@ -82,26 +82,27 @@ function TweenNumber(start, end, duration, ease, onUpdate, onComplete) {
 }
 
 
-function waitForElementById(id, onFound) {
-    
-    let element = document.getElementById(id);
-    if (element) {
-        onFound(element);
-    } else {
-        const elementFinder = new MutationObserver((mutations, self) => {
-            for (const mutation of mutations) {
-                for (const node of mutation.addedNodes) {
-                    if (node instanceof HTMLElement && node.id === id) {
-                        onFound(node);
-                        self.disconnect();
-                        return;
-                    }
-                }
+function waitForElementById(id, onFound, timeout) {
+    timeout = timeout || 5000;
+
+    const now = performance.now();
+
+    console.log(`Waiting for element with ID: ${id}`);
+
+    function checkElement() {
+        let element = document.getElementById(id);
+        if (element) {
+            onFound(element);
+        } else {
+            if (performance.now() - now > timeout) {
+                console.warn(`Timeout waiting for element with ID: ${id}`);
+                return;
             }
-        });
-        
-        elementFinder.observe(document.documentElement || document, { childList: true, subtree: true });
-    }   
+            requestAnimationFrame(checkElement);
+        }
+    }
+
+    checkElement();
 }
 
 // Animates swapping two div elements. Does not handle clean up or cloning
@@ -113,11 +114,11 @@ function animateSwapElements(div1, div2, duration, ease, onComplete) {
     const rect1 = div1.getBoundingClientRect();
     const rect2 = div2.getBoundingClientRect();
 
-    const x1 = rect1.left - overlayRect.left;
-    const y1 = rect1.bottom - overlayRect.bottom;
+    const x1 = rect1.left - 2*overlayRect.left;
+    const y1 = rect1.bottom - 2*overlayRect.bottom;
 
-    const x2 = rect2.left - overlayRect.left;
-    const y2 = rect2.bottom - overlayRect.bottom;
+    const x2 = rect2.left - 2*overlayRect.left;
+    const y2 = rect2.bottom - 2*overlayRect.bottom;
     
     const deltaX = x2 - x1;
     const deltaY = y2 - y1;
@@ -145,10 +146,10 @@ function animateSwapElements(div1, div2, duration, ease, onComplete) {
 
 // Elements that are required, but not necessarily available at script load time
 
-let dataHolderElement; // Group 1 (Main)
-let graphElement; // Group 2 (Main)
-let barContainer; // Group 2
-let graphOverlay; // Group 2
+let dataHolderElement; // Group 2 (Main)
+let graphElement; // Group 1 (Main)
+let barContainer; // Group 1
+let graphOverlay; // Group 1
 
 
 function copyElementToOverlay(original) {
@@ -294,21 +295,12 @@ function update() {
 
 // Main
 
-// Group 1;Will initialize dataHolderElement
-waitForElementById("graph-data", (ele) => {
-    dataHolderElement = ele;
 
-    new MutationObserver((mutations, self) => {
-        update();
-    }).observe(dataHolderElement, { characterData: true, childList: true, subtree: true });
-    // Initial build
-    update();
-});
-
-// Group 2; Will initialize graphElement, barContainer, graphOverlay
+// Group 1; Will initialize graphElement, barContainer, graphOverlay
 waitForElementById("graph", (ele) => {
+    console.log("Graph element found!");
     graphElement = ele;
-
+    
     barContainer = document.createElement("div");
     barContainer.style.display = "flex";
     barContainer.style.justifyContent = "center";
@@ -330,9 +322,21 @@ waitForElementById("graph", (ele) => {
     graphOverlay.style.margin = "0";
     graphOverlay.style.padding = "0";
     graphOverlay.style.textAlign = "left";
-
+    
     graphOverlay.id = "graph-overlay";
     graphElement.appendChild(graphOverlay);
     
+    
+});
+    
+// Group 2;Will initialize dataHolderElement
+waitForElementById("graph-data", (ele) => {
+    console.log("Data holder element found!");
+    dataHolderElement = ele;
 
+    new MutationObserver((mutations, self) => {
+        update();
+    }).observe(dataHolderElement, { characterData: true, childList: true, subtree: true });
+    // Initial build
+    update();
 });
