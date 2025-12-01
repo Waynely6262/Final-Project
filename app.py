@@ -2,6 +2,7 @@ from math import floor
 from deprecated import deprecated
 import random as rand
 from asyncio import sleep as wait
+import json
 
 # UTILS
 def lerp(v0: float, v1: float, a: float) -> float: # o(1) 
@@ -13,15 +14,15 @@ def is_sorted(arr: list[int]): # o(n) time
             return False
     return True
 
-def regenerate(arr, elements: int | None = 50): # o(n) time
+def regenerate(arr: list[int], elements: int | None = 50): # o(n) time
     if elements == None: elements = 50
     arr.clear()
-    for i in range(elements):
+    for _ in range(elements):
         arr.append(rand.randint(1,1000))
     return arr
 
 # Fisher-Yates shuffle, with a shuffle_strength variable representing the percentage likelihood that an element will be swapped
-def shuffle(arr, shuffle_strength: float=1.0): # o(n) time worst case
+def shuffle(arr: list[int], shuffle_strength: float=1.0): # o(n) time worst case
     for i in range(len(arr) - 1, 0, -1):
         if rand.random() > shuffle_strength: continue
         j = rand.randint(0, i)
@@ -32,7 +33,7 @@ def shuffle(arr, shuffle_strength: float=1.0): # o(n) time worst case
 
 # UTILITY CLASSES
 class Job:
-    def __init__(self, start, end):
+    def __init__(self, start: int, end: int):
         self.i0 = start
         self.i1 = end
     def get_pivot_index(self, alpha: float=1) -> int:
@@ -46,7 +47,7 @@ class Color:
     g: int
     b: int
 
-    def __init__(self, r: str | int, g: int, b: int):
+    def __init__(self, r: int, g: int, b: int):
         self.r = r
         self.g = g
         self.b = b
@@ -80,6 +81,14 @@ class Color:
 
 
 # CONFIG
+
+# Make sure these matches the identifiers used in graph.js
+JS_BUILD_FN = "buildGraph" # Name of the JS function that prompts the page to build/update the graph
+JS_ANIMATE_FN = "animateGraph" # Name of the JS function that prompts the page to animate the graph
+
+HTML_DATA_HOLDER_ELEMENT_ID = "graph-data" # HTML element ID where the graph data JSON is stored
+HTML_GRAPH_ELEMENT_ID = "graph" # HTML element ID where the graph will be rendered
+
 SWAPPING_ELEMENT_COLOR = Color(80,255,80)
 GREATER_ELEMENT_COLOR = Color(255,80,80)
 LESSER_ELEMENT_COLOR = Color(80,80,255)
@@ -109,68 +118,24 @@ class VisualState:
     def __init__(self):
         self.arr = regenerate([])
 
-    def get_html_src(self) -> str:
+    def to_dict(self) -> dict[str, object]:
 
-        length = len(self.arr)
-
-
-        border_radius = MAX_BORDER_RADIUS # Maximum radius, which may be internally be reduced to accomodate for fitting large numbers of elements
-        # Reduce the border radius if width_per_bar is too little. This is an o(log(n)) operation. width_per_bar is initialized a either the memoized result, or something that meets the while condition, since there is no do-while in python. The memoized result already met the inverse condition previously, so it is assumed to never enter the while loop. 
-        width_per_bar = bar_width_memo.get(str(length)) or border_radius * 2
-        # Calculated by distributing the total allocated width (TOTAL_WIDTH_PX) while accounting for the border radius. Then, the maximum between the calculated distribution and 1 is used.
-        while width_per_bar <= border_radius * 2:
-            border_radius //= 2
-            width_per_bar = max(( TOTAL_WIDTH_PX - (border_radius * (length + 2)) ) // max(length, 1), 1)
-
-        # Avoid repeatedly calculating the bar width by memoizing results
-        bar_width_memo[str(length)] = width_per_bar
-
-        # Main div
-        source = f'<div style="display:flex;justify-content:center;align-items:flex-end;height:{TOTAL_HEIGHT_PX}px;gap:{border_radius}px;">'
-
-        # Get maximum value from array, but require it to be at least 4 to avoid division by zero. Get the inverse of that value and use it as the multiplier for determining the percentage of the maximum height of each bar
-        max_v = len(self.arr) and max(max(self.arr), 4) or 4
-
-        height_factor = 1 / max_v # Do this to optimize division; think of it as how much the pixel height increases per 1 value.
-
-        if self.pv != None:
-            pivot_val = self.arr[self.pv]
-            
-        for i, v in enumerate(self.arr):
-            height = int((v * height_factor) * 100)
-
-            # Color any specified bars differently
-
-            color: Color = None
-            if self.partitioning:
-                if i < self.i1 and i >= self.i0:
-                    # Within the partition's range
-                    # Elements larger than the pivot and smaller than the pivot are different colored, representing where they should end up
-                    color = pivot_val < self.arr[i] and GREATER_ELEMENT_COLOR or LESSER_ELEMENT_COLOR
-
-                # We don't have to make sure 'pv' isn't 'None' because comparing int and None is a supported operation
-                elif i == self.pv:
-                    # Is the pivot element
-                    color = PIVOT_ELEMENT_COLOR
-            # Anything else
-            color = color or DEFAULT_ELEMENT_COLOR
-
-            # Highlight active_indices
-            if i == self.s0 or i == self.s1:
-                # At this point, color is already guaranteed to be defined
-                color = self.swapping and SWAPPING_ELEMENT_COLOR or color.lerp(HIGHLIGHT_COLOR, HIGHLIGHT_STRENGTH)
-            # html source for each individual bar
-            source += f'''
-            <div style="
-                width: {width_per_bar}px;
-                height: {height}%;
-                background-color:{color.get_hex()};
-                border-radius:{border_radius}px;">
-            </div>
-            '''
-
-        source += '</div>'
-        return source
+        return {
+            "arr": self.arr,
+            "partitioning": self.partitioning,
+            "i0": self.i0,
+            "i1": self.i1,
+            "pv": self.pv,
+            "s0": self.s0,
+            "s1": self.s1,
+            "swapping": self.swapping
+        }
+    
+    def to_embedded_json(self) -> str:
+        print("creating embedded json..")
+        json_src = json.dumps(self.to_dict())
+        return f"<script id=\"{HTML_DATA_HOLDER_ELEMENT_ID}\" type=\"application/json\">{json_src}</script>"
+    
 # bounded by 32-bit int lim.
 START_CALL_ID = -2**31
 MAX_CALL_ID = 2**31 - 1
@@ -197,10 +162,10 @@ class InternalState:
     def lock_active(self):
         return self.is_active
     
-    def is_lock_owner(self, caller_id) -> bool:
+    def is_lock_owner(self, caller_id: int) -> bool:
         return self.call_id == caller_id
 
-    def close_lock(self, id):
+    def close_lock(self, id: int):
         # Only the lock owner can close the active lock
         if self.call_id == id:
             self.is_active = False
@@ -281,34 +246,7 @@ def partition(chart_info: VisualState, start: int, end: int, alpha: float=1):
     # Return the free index, which has the position of the semi-sorted element, the pivot
     return free_index
 
-# Recursive quick-sort, only left here for the concept. May not be up-to-date with the latest features
-@deprecated
-def quick_sort(arr: list[int], start: int = 0, end: int | None = None) -> list[int]:
-    # Dynamic default value for the end-point
-    end = end == None and len(arr) - 1 or end
-    
-    # Base case: The sub-array has reached length <= 1
-    if start >= end:
-        return
-    
-    partitioner = partition(arr, start, end)
-
-    try:
-        while True:
-            next(partitioner)
-    except StopIteration as result:
-        # Get the pivot point's index
-        pivot_index = result.value
-
-    # Sort items below the pivot point's index
-
-    quick_sort(arr, start, pivot_index - 1)
-    # Sort items above the pivot point's index
-    quick_sort(arr, pivot_index + 1, end)
-
-    return arr
-
-def quick_sort_iterative(chart_info: VisualState, session_info: InternalState, step_sort: bool=False, iterations_allowed: int | None = 1, use_random_pivot: bool=False):
+def quick_sort_iterative(chart_info: VisualState, session_info: InternalState, step_sort: bool=False, iterations_allowed: int = 1, use_random_pivot: bool=False):
 
     arr = chart_info.arr
 
@@ -364,6 +302,9 @@ def quick_sort_iterative(chart_info: VisualState, session_info: InternalState, s
 # Main
 import gradio as gr
 
+with open("graph.js", "r") as js_file:
+   graph_builder_src_js = js_file.read()
+
 with gr.Blocks() as demo:
 
 
@@ -379,7 +320,9 @@ with gr.Blocks() as demo:
 
     gr.Markdown("# Quicksort: by Wayne")
     
-    html_chart = gr.HTML(chart_info_state.value.get_html_src())
+    hidden_graph_data = gr.HTML(value=chart_info_state.value.to_embedded_json())
+
+    html_chart = gr.HTML(value=f"<div></div>", elem_id=HTML_GRAPH_ELEMENT_ID)
 
     iteration_interval_slider = gr.Slider(label="Iteration Interval (seconds)", minimum=0, maximum=2, value=0.05)
     iterations_per_step_slider = gr.Slider(label="Iterations per Step", minimum=1, maximum=10, value=1, step=1)
@@ -413,7 +356,6 @@ with gr.Blocks() as demo:
         show_swaps: bool,
         use_random_pivot: bool
     ):
-        print("step_button on click")
 
         # Update the global call id, and is_active state
         this_id = session_info.new_lock()
@@ -425,12 +367,12 @@ with gr.Blocks() as demo:
                 # Under the assumption that chart_info's reference is maintained, we don't need any return values! However, it could still be worth noting where modifications are inexplicitly made.
                 next(quick_sort_generator) # modifies chart_info
                 if show_swaps:
-                    yield chart_info.get_html_src()
+                    yield chart_info.to_embedded_json()
                     await wait(wait_interval)
         except StopIteration as result:
             if not show_swaps:
                 chart_info.partitioning = True
-                yield chart_info.get_html_src()
+                yield chart_info.to_embedded_json()
                 chart_info.partitioning = False
                 await wait(wait_interval)
         
@@ -448,8 +390,8 @@ with gr.Blocks() as demo:
             pv_alpha_use_random_checkbox,
         ], 
         [
-            html_chart,
-        ], queue=True, concurrency_limit=None
+            hidden_graph_data,
+        ], queue=True, concurrency_limit=None, js=JS_BUILD_FN
     )
 
     async def sort_button_on_click(chart_info: VisualState, session_info: InternalState, wait_interval: float, show_swaps: bool, use_random_pivot: bool):
@@ -472,20 +414,20 @@ with gr.Blocks() as demo:
                 while session_info.is_lock_owner(this_id):
                     next(quick_sort_generator) # modifies chart_info
                     if show_swaps:
-                        yield chart_info.get_html_src()
+                        yield chart_info.to_embedded_json()
                         await wait(wait_interval) 
             except StopIteration as result:
                 local_jobs = result.value
                 # Only do this  if not showing swaps. Since the full-sort feature relies on creating a quick_sort_iterative generator with argument iterations_allowed=1, this function will call wait() too many times, reducing the animation speed.
                 if not show_swaps:
                     chart_info.partitioning = True
-                    yield chart_info.get_html_src()
+                    yield chart_info.to_embedded_json()
                     chart_info.partitioning = False
                     await wait(wait_interval)
 
         session_info.close_lock(this_id)
 
-        yield chart_info.get_html_src()
+        yield chart_info.to_embedded_json()
 
     sort_button.click(sort_button_on_click, [
         chart_info_state,
@@ -493,7 +435,7 @@ with gr.Blocks() as demo:
         iteration_interval_slider, # How long to wait between each update
         show_swaps_option, # Whether to show swaps being performed, or to just show partitions
         pv_alpha_use_random_checkbox, # Whether to randomize the pivot alpha
-    ], [html_chart], queue=True, concurrency_limit=None)
+    ], [hidden_graph_data], queue=True, concurrency_limit=None, js=JS_BUILD_FN)
 
     def stop_button_on_click(session_info: InternalState):
         # Overwrites other locks, then closes itself; result: peace and quiet (nothing will be running)
@@ -512,20 +454,26 @@ with gr.Blocks() as demo:
         regenerate(chart_info.arr, floor(element_count_src))
 
         # Update states
-        return chart_info.get_html_src()
-    reset_button.click(reset_button_on_click, [chart_info_state, session_info_state, element_count_slider], [html_chart])
+        return chart_info.to_embedded_json()
+    reset_button.click(reset_button_on_click, [chart_info_state, session_info_state, element_count_slider], [hidden_graph_data], js=JS_BUILD_FN)
 
     # Since this doesn't affect the number of elements in the list, it won't cause the program to fail. I will let this be callable mid-sort, just for fun
     def shuffle_button_on_click(chart_info: VisualState, shuffle_strength: float):
         shuffle(chart_info.arr, shuffle_strength)
-        return chart_info.get_html_src()
-    shuffle_button.click(shuffle_button_on_click, [chart_info_state, shuffle_strength_field], [html_chart])
+        return chart_info.to_embedded_json()
+    shuffle_button.click(shuffle_button_on_click, [chart_info_state, shuffle_strength_field], [hidden_graph_data], js=JS_BUILD_FN)
 
-    def pv_alpha_slider_on_change(session_info: InternalState, alpha):
+    def pv_alpha_slider_on_change(session_info: InternalState, alpha: float):
         # Updates a variable so the pivot alpha can be adjusted during an on-going sort
         session_info.pv_alpha = alpha
     pv_alpha_slider.change(pv_alpha_slider_on_change, [session_info_state, pv_alpha_slider])
 
 
 
-demo.launch(share=True)
+demo.launch(share=True, head=f"<script>{graph_builder_src_js}</script>", 
+            
+css = """
+#warning {background-color: #FFCCCB}
+.feedback textarea {font-size: 24px !important}
+"""
+)

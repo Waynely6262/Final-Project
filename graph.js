@@ -1,0 +1,139 @@
+class Color {
+    constructor(r, g, b) {
+        this.r = r;
+        this.g = g;
+        this.b = b;
+    }
+
+    static fromHex(hex) {
+        hex = hex.replace("#", "");
+        return new Color(
+            parseInt(hex.slice(0, 2), 16),
+            parseInt(hex.slice(2, 4), 16),
+            parseInt(hex.slice(4, 6), 16)
+        );
+    }
+
+    lerp(other, t) {
+        return new Color(
+            this.r + (other.r - this.r) * t,
+            this.g + (other.g - this.g) * t,
+            this.b + (other.b - this.b) * t
+        );
+    }
+
+    toHex() {
+        let r = this.r.toString(16).padStart(2, '0');
+        let g = this.g.toString(16).padStart(2, '0');
+        let b = this.b.toString(16).padStart(2, '0');
+        return `#${r}${g}${b}`;
+    }
+}
+
+const SWAPPING_ELEMENT_COLOR = new Color(80, 255, 80);
+const GREATER_ELEMENT_COLOR = new Color(255, 80, 80);
+const LESSER_ELEMENT_COLOR = new Color(80, 80, 255);
+const HIGHLIGHT_COLOR = new Color(255, 255, 255);
+const DEFAULT_ELEMENT_COLOR = Color.fromHex("#c4c8db");
+const PIVOT_ELEMENT_COLOR = new Color(255, 160, 80);
+const HIGHLIGHT_STRENGTH = 0.75;
+
+const MAX_BORDER_RADIUS = 16;
+const TOTAL_HEIGHT_PX = 200;
+const TOTAL_WIDTH_PX = 2000;
+
+let bar_width_memo = {};     // same semantics as Python
+
+function assert(condition, message) { // functions like the lua 'assert' function
+    if (!condition) {
+        throw new Error(message || "Assertion failed! (No message provided)");
+    }
+    return condition;
+}
+
+function getData() { // attempts to get data from a hidden input element that stores a JSON string
+    element = assert(document.getElementById("graph-data"), "Graph data not found; are you using \"graph-data\" as the element ID?");
+    return JSON.parse(element.value);
+}
+
+function getHtmlSrc(data) {
+
+    const arr = data.arr;
+    const length = arr.length;
+
+    let borderRadius = MAX_BORDER_RADIUS;
+
+    // Try cached width
+    let widthPerBar = bar_width_memo[length] || borderRadius * 2;
+
+    // While width is too small, reduce border radius
+    while (widthPerBar <= borderRadius * 2) {
+        borderRadius = Math.floor(borderRadius / 2);
+        widthPerBar = Math.max(
+            Math.floor((TOTAL_WIDTH_PX - borderRadius * (length + 2)) / Math.max(length, 1)),
+            1
+        );
+    }
+
+    // Cache the result
+    bar_width_memo[length] = widthPerBar;
+
+    // Build the main container div
+    let html = `<div style="display:flex;justify-content:center;align-items:flex-end;height:${TOTAL_HEIGHT_PX}px;gap:${borderRadius}px;">`;
+
+    // Compute height scaling
+    let maxVal = Math.max(Math.max(...arr, 4), 4);
+    let heightFactor = 1 / maxVal;
+
+    let pivotVal = null;
+    if (data.pv !== null && data.pv !== undefined)
+        pivotVal = arr[data.pv];
+
+    // Build each bar
+    for (let i = 0; i < arr.length; i++) {
+        const v = arr[i];
+        const height = Math.floor(v * heightFactor * 100);
+
+        let color = null;
+
+        if (data.partitioning) {
+            if (i >= data.i0 && i < data.i1) {
+                // within range
+                color = (pivotVal < arr[i]) ? GREATER_ELEMENT_COLOR : LESSER_ELEMENT_COLOR;
+            } else if (i === data.pv) {
+                color = PIVOT_ELEMENT_COLOR;
+            }
+        }
+
+        if (!color) color = DEFAULT_ELEMENT_COLOR;
+
+        // Highlight on swap
+        if (i === data.s0 || i === data.s1) {
+            if (data.swapping) {
+                color = SWAPPING_ELEMENT_COLOR;
+            } else {
+                color = color.lerp(HIGHLIGHT_COLOR, HIGHLIGHT_STRENGTH);
+            }
+        }
+
+        html += `
+        <div style="
+            width:${widthPerBar}px;
+            height:${height}%;
+            background-color:${color.toHex()};
+            border-radius:${borderRadius}px;">
+        </div>`;
+    }
+
+    html += `</div>`;
+    return html;
+}
+
+function buildGraph() {
+    const data = getData();
+    console.log(`Building graph (data: ${data})...`); // test object
+
+    const element = assert(document.getElementById("graph"), `Graph container element not found; are you using "graph" as the element ID?`);
+    document.getElementById("graph").innerHTML = getHtmlSrc(data);
+}
+
