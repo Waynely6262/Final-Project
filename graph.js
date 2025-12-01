@@ -114,28 +114,30 @@ function animateSwapElements(div1, div2, duration, ease, onComplete) {
     const rect1 = div1.getBoundingClientRect();
     const rect2 = div2.getBoundingClientRect();
 
+    // Hours wasted trying to figuring this out: 4
+    
+    // I genuinely don't know why this works but it does..
     const x1 = rect1.left - 2*overlayRect.left;
-    const y1 = rect1.bottom - 2*overlayRect.bottom;
+    // const y1 = rect1.bottom;
 
     const x2 = rect2.left - 2*overlayRect.left;
-    const y2 = rect2.bottom - 2*overlayRect.bottom;
+    // const y2 = rect2.bottom;
     
     const deltaX = x2 - x1;
-    const deltaY = y2 - y1;
+    // const deltaY = y2 - y1;
     
-    // Convert clones to absolute coordinates
     div1.style.position = "absolute";
     div2.style.position = "absolute";
 
     div1.style.left = x1 + "px";
-    div1.style.top = y1 + "px";
+    // div1.style.bottom = y1 + "px";
     
     div2.style.left = x2 + "px";
-    div2.style.top = y2 + "px";
+    // div2.style.bottom = y2 + "px";
     
     TweenNumber(0, 1, duration, ease, (t) => {
-        div1.style.transform = `translate(${deltaX * t}px, ${deltaY * t}px)`;
-        div2.style.transform = `translate(${-deltaX * t}px, ${-deltaY * t}px)`;
+        div1.style.transform = `translate(${deltaX * t}px, 0)`;
+        div2.style.transform = `translate(${-deltaX * t}px, 0)`;
     }, () => {
         div1.style.transform = "";
         div2.style.transform = "";
@@ -290,7 +292,7 @@ function update() {
 
     updateBars(data);
     
-    if (data.swapping) animateSwap(data.s0, data.s1, 1000 /*Use wait_interval here*/);
+    if (data.swapping) animateSwap(data.s0, data.s1, data.dt * 1000);
 }
 
 // Main

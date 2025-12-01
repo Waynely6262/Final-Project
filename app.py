@@ -112,6 +112,7 @@ class VisualState:
     pv: int | None = None # Pivot index
     s0: int | None = None # First swap index
     s1: int | None = None # Second swap index
+    dt: float = 0.05 # Time delta between frames
     swapping: bool = False # Whether a swap is occurring. The swap indexes will be coloured differently if (swapping)
     def __init__(self):
         self.arr = regenerate([])
@@ -321,7 +322,7 @@ with gr.Blocks() as demo:
 
     html_chart = gr.HTML(value=f"<div></div>", elem_id=HTML_GRAPH_ELEMENT_ID)
 
-    iteration_interval_slider = gr.Slider(label="Iteration Interval (seconds)", minimum=0, maximum=2, value=0.05)
+    iteration_interval_slider = gr.Slider(label="Iteration Interval (seconds)", minimum=0, maximum=2, value=chart_info_state.value.dt)
     iterations_per_step_slider = gr.Slider(label="Iterations per Step", minimum=1, maximum=10, value=1, step=1)
     element_count_slider = gr.Slider(label="Total Elements", minimum=1, maximum=MAX_ELEMENTS, value=50, step=1)
     shuffle_strength_field = gr.Slider(label= "Shuffle Strength", minimum=0.0, maximum=1.0, value=0.1)
@@ -443,7 +444,7 @@ with gr.Blocks() as demo:
     def reset_button_on_click(chart_info: VisualState, session_info: InternalState, element_count_src: float):
         if session_info.lock_active():
             gr.Info("Sorting is in progress, can't refresh")
-            return None
+            return chart_info.to_embedded_json()
         # Clear step-sort pending jobs
         session_info.step_sort_jobs = None
 
@@ -465,9 +466,14 @@ with gr.Blocks() as demo:
         session_info.pv_alpha = alpha
     pv_alpha_slider.change(pv_alpha_slider_on_change, [session_info_state, pv_alpha_slider])
 
+    def iteration_interval_slider_on_change(chart_info: VisualState, interval: float):
+        chart_info.dt = interval
+        return
+    iteration_interval_slider.change(iteration_interval_slider_on_change, [chart_info_state, iteration_interval_slider], [])
 
 
-demo.launch(share=True, head=f"<script>{graph_builder_src_js}</script>", 
+
+demo.launch(share=True, head=f"<script defer>{graph_builder_src_js}</script>", 
             
 css = """
 #warning {background-color: #FFCCCB}
