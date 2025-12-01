@@ -83,8 +83,6 @@ class Color:
 # CONFIG
 
 # Make sure these matches the identifiers used in graph.js
-JS_BUILD_FN = "buildGraph" # Name of the JS function that prompts the page to build/update the graph
-JS_ANIMATE_FN = "animateGraph" # Name of the JS function that prompts the page to animate the graph
 
 HTML_DATA_HOLDER_ELEMENT_ID = "graph-data" # HTML element ID where the graph data JSON is stored
 HTML_GRAPH_ELEMENT_ID = "graph" # HTML element ID where the graph will be rendered
@@ -391,7 +389,7 @@ with gr.Blocks() as demo:
         ], 
         [
             hidden_graph_data,
-        ], queue=True, concurrency_limit=None, js=JS_BUILD_FN
+        ], queue=True, concurrency_limit=None, 
     )
 
     async def sort_button_on_click(chart_info: VisualState, session_info: InternalState, wait_interval: float, show_swaps: bool, use_random_pivot: bool):
@@ -435,7 +433,7 @@ with gr.Blocks() as demo:
         iteration_interval_slider, # How long to wait between each update
         show_swaps_option, # Whether to show swaps being performed, or to just show partitions
         pv_alpha_use_random_checkbox, # Whether to randomize the pivot alpha
-    ], [hidden_graph_data], queue=True, concurrency_limit=None, js=JS_BUILD_FN)
+    ], [hidden_graph_data], queue=True, concurrency_limit=None, )
 
     def stop_button_on_click(session_info: InternalState):
         # Overwrites other locks, then closes itself; result: peace and quiet (nothing will be running)
@@ -455,13 +453,13 @@ with gr.Blocks() as demo:
 
         # Update states
         return chart_info.to_embedded_json()
-    reset_button.click(reset_button_on_click, [chart_info_state, session_info_state, element_count_slider], [hidden_graph_data], js=JS_BUILD_FN)
+    reset_button.click(reset_button_on_click, [chart_info_state, session_info_state, element_count_slider], [hidden_graph_data], )
 
     # Since this doesn't affect the number of elements in the list, it won't cause the program to fail. I will let this be callable mid-sort, just for fun
     def shuffle_button_on_click(chart_info: VisualState, shuffle_strength: float):
         shuffle(chart_info.arr, shuffle_strength)
         return chart_info.to_embedded_json()
-    shuffle_button.click(shuffle_button_on_click, [chart_info_state, shuffle_strength_field], [hidden_graph_data], js=JS_BUILD_FN)
+    shuffle_button.click(shuffle_button_on_click, [chart_info_state, shuffle_strength_field], [hidden_graph_data], )
 
     def pv_alpha_slider_on_change(session_info: InternalState, alpha: float):
         # Updates a variable so the pivot alpha can be adjusted during an on-going sort

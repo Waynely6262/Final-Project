@@ -16,9 +16,9 @@ class Color {
 
     lerp(other, t) {
         return new Color(
-            this.r + (other.r - this.r) * t,
-            this.g + (other.g - this.g) * t,
-            this.b + (other.b - this.b) * t
+            Math.round(this.r + (other.r - this.r) * t),
+            Math.round(this.g + (other.g - this.g) * t),
+            Math.round(this.b + (other.b - this.b) * t)
         );
     }
 
@@ -46,14 +46,15 @@ let bar_width_memo = {};     // same semantics as Python
 
 function assert(condition, message) { // functions like the lua 'assert' function
     if (!condition) {
-        throw new Error(message || "Assertion failed! (No message provided)");
+        console.error(message || "Assertion failed! (No message provided)");
     }
     return condition;
 }
 
-function getData() { // attempts to get data from a hidden input element that stores a JSON string
-    element = assert(document.getElementById("graph-data"), "Graph data not found; are you using \"graph-data\" as the element ID?");
-    return JSON.parse(element.value);
+function getData() { // attempts to get data from a hidden element that stores a JSON string
+    // The element is expected to be a <script>
+    const element = assert(document.getElementById("graph-data"), "Graph data not found; are you using \"graph-data\" as the element ID?");
+    return JSON.parse(element.innerHTML);
 }
 
 function getHtmlSrc(data) {
@@ -130,10 +131,45 @@ function getHtmlSrc(data) {
 }
 
 function buildGraph() {
+    console.log("Received buildGraph request, fetching data...");
     const data = getData();
-    console.log(`Building graph (data: ${data})...`); // test object
+    console.log("Data fetched successfully.");
+    console.log(`Building graph (data: ${data})`); // test object
 
     const element = assert(document.getElementById("graph"), `Graph container element not found; are you using "graph" as the element ID?`);
     document.getElementById("graph").innerHTML = getHtmlSrc(data);
 }
 
+
+
+function onDataHolderFound(dataHolderElement) {
+    // Expect that dataHolderElement is now valid; possibly redundant lol
+    assert(dataHolderElement, "Data holder element not found but onDataHolderFound was called?");
+    
+    new MutationObserver((mutations, self) => {
+        buildGraph();
+    }).observe(dataHolderElement, { characterData: true, childList: true, subtree: true });
+
+    // Initial build
+    buildGraph();
+    
+}
+
+let dataHolderElement = document.getElementById("graph-data"); // won't exist at first load, but this line makes it clear what we're looking for
+if (dataHolderElement) {
+    onDataHolderFound(dataHolderElement);
+} else {
+    const dataHolderFinder = new MutationObserver((mutations, self) => {
+        for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+                if (node instanceof HTMLElement && node.id === "graph-data") {
+                    onDataHolderFound(node);
+                    self.disconnect();
+                    return;
+                }
+            }
+        }
+    });
+
+    dataHolderFinder.observe(document.documentElement || document, { childList: true, subtree: true });
+}
