@@ -36,7 +36,7 @@ const LESSER_ELEMENT_COLOR = new Color(80, 80, 255);
 const HIGHLIGHT_COLOR = new Color(255, 255, 255);
 const DEFAULT_ELEMENT_COLOR = Color.fromHex("#c4c8db");
 const PIVOT_ELEMENT_COLOR = new Color(255, 160, 80);
-const HIGHLIGHT_STRENGTH = 0.75;
+const HIGHLIGHT_STRENGTH = 0.4;
 
 const MAX_BORDER_RADIUS = 16;
 const TOTAL_HEIGHT_PX = 200;
@@ -248,7 +248,9 @@ function updateBars(data) {
         // Highlight on swap
         if (i === data.s0 || i === data.s1) {
             if (data.swapping) {
-                color = SWAPPING_ELEMENT_COLOR;
+                if (!data.animate_swaps) { // Only change the colour if the swap isn't animated
+                    color = SWAPPING_ELEMENT_COLOR;
+                }
             } else {
                 color = color.lerp(HIGHLIGHT_COLOR, HIGHLIGHT_STRENGTH);
             }
