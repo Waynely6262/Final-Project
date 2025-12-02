@@ -295,7 +295,7 @@ function animateSwap(index1, index2, duration) {
     originalBar2.style.visibility = "hidden";
 
     // run animation
-    animateSwapElements(bar1, bar2, duration, easeInOutQuad, () => {
+    animateSwapElements(bar1, bar2, duration, easeInOutExpo, () => {
         bar1.remove();
         bar2.remove();
         

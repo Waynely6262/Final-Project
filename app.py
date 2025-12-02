@@ -112,7 +112,7 @@ class VisualState:
     pv: int | None = None # Pivot index
     s0: int | None = None # First swap index
     s1: int | None = None # Second swap index
-    dt: float = 0.05 # Time delta between frames
+    dt: float = 0 # Expected time delay before proceeding
     swapping: bool = False # Whether a swap is occurring. The swap indexes will be coloured differently if (swapping)
     animate_swaps: bool = True # Whether to animate swaps
     
@@ -146,6 +146,10 @@ class InternalState:
     step_sort_jobs: list[Job] | None = None
     call_id: int = START_CALL_ID
     pv_alpha: float = 1.0
+
+    wait_interval: float = 0.25
+
+    use_random_pv: bool = False
     show_queries: bool = True
     show_comparisons: bool = True
 
@@ -247,7 +251,7 @@ def partition(chart_info: VisualState, start: int, end: int, alpha: float=1):
     # Return the free index, which has the position of the semi-sorted element, the pivot
     return free_index
 
-def quick_sort_iterative(chart_info: VisualState, session_info: InternalState, step_sort: bool=False, iterations_allowed: int = 1, use_random_pivot: bool=False):
+def quick_sort_iterative(chart_info: VisualState, session_info: InternalState, step_sort: bool=False, iterations_allowed: int = 1):
 
     arr = chart_info.arr
 
@@ -276,7 +280,7 @@ def quick_sort_iterative(chart_info: VisualState, session_info: InternalState, s
         chart_info.partitioning = True
 
 
-        partitioner = partition(chart_info, i0, i1, use_random_pivot and rand.random() or session_info.pv_alpha)
+        partitioner = partition(chart_info, i0, i1, session_info.use_random_pv and rand.random() or session_info.pv_alpha)
 
         # Conventional structure for python generators (I think?)
         try:
@@ -318,7 +322,7 @@ with gr.Blocks() as demo:
     
     # session_info_state stores components that are irrelevant to graphics: Essentially, values that are only used internally (in the back-end)
     # An assumption is made that type(gr.State()) objects pass their 'value' attribute whenever the gr.State object is used as input, meaning that references are maintained and session_info never needs to be used as output.
-    session_info_state = gr.State(value=InternalState())
+    session_info_state = gr.State(value=InternalState()) # luau typecheck: gr.State & {value: InternalState}
 
     gr.Markdown("# Quicksort: by Wayne")
     
@@ -326,24 +330,37 @@ with gr.Blocks() as demo:
 
     html_chart = gr.HTML(value=f"<div></div>", elem_id=HTML_GRAPH_ELEMENT_ID)
 
-    iteration_interval_slider = gr.Slider(label="Iteration Interval (seconds)", minimum=0, maximum=2, value=chart_info_state.value.dt)
-    iterations_per_step_slider = gr.Slider(label="Iterations per Step", minimum=1, maximum=10, value=1, step=1)
-    element_count_slider = gr.Slider(label="Total Elements", minimum=1, maximum=MAX_ELEMENTS, value=50, step=1)
-    shuffle_strength_field = gr.Slider(label= "Shuffle Strength", minimum=0.0, maximum=1.0, value=0.1)
 
+    # Visual update controls
     with gr.Row():
-        show_comparisons_option = gr.Checkbox(label="Show Comparisons", value=True)
-        show_queries_option = gr.Checkbox(label="Show Swaps", value=True)
-        animate_swaps_option = gr.Checkbox(label="Animate Swaps", value=chart_info_state.value.animate_swaps)
+        show_queries_option = gr.Checkbox(label="Show Queries", value=session_info_state.value.show_queries) # Uses session info because py prompts visual updates, so js doesnt need this
+        show_comparisons_option = gr.Checkbox(label="Show Comparisons", value=session_info_state.value.show_comparisons) # Uses session info because py prompts visual updates, so js doesnt need this
+        animate_swaps_option = gr.Checkbox(label="Animate Swaps", value=chart_info_state.value.animate_swaps) # Uses chart info because js needs to know whether to animate
 
-    pv_alpha_use_random_checkbox = gr.Checkbox(label="Use Random Pivot", value=False)
-    pv_alpha_slider = gr.Slider(label="Custom Pivot Point", minimum=0, maximum=1, value=1)
+    # Pivot controls
+    with gr.Row():
+        use_random_pv_option = gr.Checkbox(label="Use Random Pivot", value=session_info_state.value.use_random_pv)
+        pv_alpha_slider = gr.Slider(label="Custom Pivot Point", minimum=0, maximum=1, value=1)
 
-    shuffle_button = gr.Button("Shuffle Elements")
-    stop_button = gr.Button("Stop Sorting (May not respond immediately for large arrays)")
-    reset_button = gr.Button("Regenerate Elements")
-    step_button = gr.Button("Step Sort")
-    sort_button = gr.Button("Complete Sort")
+    # Unsorting controls
+    with gr.Row():
+        with gr.Column():
+            element_count_slider = gr.Slider(label="Total Elements", minimum=1, maximum=MAX_ELEMENTS, value=50, step=1)
+            reset_button = gr.Button("Regenerate Elements")
+        with gr.Column():
+            shuffle_strength_field = gr.Slider(label= "Shuffle Strength", minimum=0.0, maximum=1.0, value=0.1)
+            shuffle_button = gr.Button("Shuffle Elements")
+            
+
+    # Sorting controls
+    with gr.Row():
+        with gr.Column():
+            iterations_per_step_slider = gr.Slider(label="Iterations per Step", minimum=1, maximum=10, value=1, step=1)
+            step_button = gr.Button("Step Sort")
+        with gr.Column():
+            iteration_interval_slider = gr.Slider(label="Iteration Interval (seconds)", minimum=0.001, maximum=2, value=session_info_state.value.wait_interval)
+            stop_button = gr.Button("Stop Sorting (May not respond immediately for large arrays)")
+            sort_button = gr.Button("Complete Sort")
 
         
 
@@ -356,15 +373,13 @@ with gr.Blocks() as demo:
     async def step_button_on_click(
         chart_info: VisualState,
         session_info: InternalState,
-        wait_interval: float,
         steps_src: float, # This has been made to be received as an int, but I'm leaving the parsing as a redundancy.
-        use_random_pivot: bool
     ):
 
         # Update the global call id, and is_active state
         this_id = session_info.new_lock()
 
-        quick_sort_generator = quick_sort_iterative(chart_info, session_info, step_sort=True, iterations_allowed = round(steps_src), use_random_pivot=use_random_pivot)
+        quick_sort_generator = quick_sort_iterative(chart_info, session_info, step_sort=True, iterations_allowed = round(steps_src))
         
         try:
             while session_info.is_lock_owner(this_id):
@@ -372,7 +387,7 @@ with gr.Blocks() as demo:
                 job_finished = next(quick_sort_generator)
                 if session_info.show_queries:
                     if session_info.show_comparisons or chart_info.swapping:
-                        final_wait_interval = wait_interval * chart_info.get_wait_multiplier_for_current_state()
+                        final_wait_interval = session_info.wait_interval * chart_info.get_wait_multiplier_for_current_state()
                         chart_info.dt = final_wait_interval
                         yield chart_info.to_embedded_json()
                         await wait(final_wait_interval)
@@ -381,7 +396,7 @@ with gr.Blocks() as demo:
                     chart_info.partitioning = True
                     yield chart_info.to_embedded_json()
                     chart_info.partitioning = False
-                    await wait(wait_interval)
+                    await wait(session_info.wait_interval)
         except StopIteration:
             pass
         
@@ -390,26 +405,24 @@ with gr.Blocks() as demo:
 
     step_button.click(
         step_button_on_click, 
-        [# 6
+        [
             chart_info_state,
             session_info_state,
-            iteration_interval_slider,
             iterations_per_step_slider,
-            pv_alpha_use_random_checkbox,
         ], 
         [
             hidden_graph_data,
         ], queue=True, concurrency_limit=None, 
     )
 
-    async def sort_button_on_click(chart_info: VisualState, session_info: InternalState, wait_interval: float, use_random_pivot: bool):
+    async def sort_button_on_click(chart_info: VisualState, session_info: InternalState):
 
         # If pivot_alpha isn't 1, the sort function will unsort the array. This if statement will prevent that from happening
         if not is_sorted(chart_info.arr):
 
             this_id = session_info.new_lock()
 
-            quick_sort_generator = quick_sort_iterative(chart_info, session_info, use_random_pivot=use_random_pivot)
+            quick_sort_generator = quick_sort_iterative(chart_info, session_info)
 
             try:
                 while session_info.is_lock_owner(this_id):
@@ -417,7 +430,7 @@ with gr.Blocks() as demo:
                     job_finished = next(quick_sort_generator)
                     if session_info.show_queries:
                         if session_info.show_comparisons or chart_info.swapping:
-                            final_wait_interval = wait_interval * chart_info.get_wait_multiplier_for_current_state()
+                            final_wait_interval = session_info.wait_interval * chart_info.get_wait_multiplier_for_current_state()
                             chart_info.dt = final_wait_interval
                             yield chart_info.to_embedded_json()
                             await wait(final_wait_interval)
@@ -426,7 +439,7 @@ with gr.Blocks() as demo:
                         chart_info.partitioning = True
                         yield chart_info.to_embedded_json()
                         chart_info.partitioning = False
-                        await wait(wait_interval)
+                        await wait(session_info.wait_interval)
 
             except StopIteration:
                 pass
@@ -441,8 +454,6 @@ with gr.Blocks() as demo:
     sort_button.click(sort_button_on_click, [
         chart_info_state,
         session_info_state,
-        iteration_interval_slider, # How long to wait between each update
-        pv_alpha_use_random_checkbox, # Whether to randomize the pivot alpha
     ], [hidden_graph_data], queue=True, concurrency_limit=None, )
 
     def stop_button_on_click(session_info: InternalState):
@@ -478,16 +489,22 @@ with gr.Blocks() as demo:
         session_info.pv_alpha = alpha
     pv_alpha_slider.change(pv_alpha_slider_on_change, [session_info_state, pv_alpha_slider])
 
-    def iteration_interval_slider_on_change(chart_info: VisualState, interval: float):
-        chart_info.dt = interval
-        return
-    iteration_interval_slider.change(iteration_interval_slider_on_change, [chart_info_state, iteration_interval_slider], [])
+    def use_random_pv_option_on_change(session_info: InternalState, value: bool):
+        session_info.use_random_pv = value
+        return gr.update(interactive=not value)
+    use_random_pv_option.change(use_random_pv_option_on_change, [session_info_state, use_random_pv_option], [pv_alpha_slider])
 
-    # Checkbox row
+    def iteration_interval_slider_on_change(session_info: InternalState, value: float):
+        session_info.wait_interval = value
+    iteration_interval_slider.change(iteration_interval_slider_on_change, [session_info_state, iteration_interval_slider])
 
+    # option row
     def show_queries_option_on_change(session_info: InternalState, show_queries: bool): # Controls whether swaps and comparisons are shown
         session_info.show_queries = show_queries
-    show_queries_option.change(show_queries_option_on_change, [session_info_state, show_queries_option])
+
+        # The sole purpsoe of reading show_comparisons in this event handler is to update the interactability of the animate_swaps option
+        return gr.update(interactive=show_queries), gr.update(interactive=show_queries)
+    show_queries_option.change(show_queries_option_on_change, [session_info_state, show_queries_option, show_comparisons_option], [show_comparisons_option, animate_swaps_option])
 
     def show_comparisons_option_on_change(session_info: InternalState, show_comparisons: bool):
         session_info.show_comparisons = show_comparisons
@@ -496,6 +513,8 @@ with gr.Blocks() as demo:
     def animate_swaps_option_on_change(chart_info: VisualState, animate_swaps: bool):
         chart_info.animate_swaps = animate_swaps
     animate_swaps_option.change(animate_swaps_option_on_change, [chart_info_state, animate_swaps_option])
+
+    # end of option row
 
 
 demo.launch(share=True, head=f"<script defer>{graph_builder_src_js}</script>", 
