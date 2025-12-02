@@ -467,7 +467,7 @@ with gr.Blocks() as demo:
     # Since this doesn't affect the number of elements in the list, it won't cause the program to fail. I will let this be callable mid-sort, just for fun
     def shuffle_button_on_click(chart_info: VisualState, shuffle_strength: float):
         shuffle(chart_info.arr, shuffle_strength)
-        chart_info.reset_visuals()
+        # chart_info.reset_visuals() # This is disabled because it will modify chart_info.pv, which causes issues because the sort algorithm doesn't reset chart_info.pv even if it's currently active
         return chart_info.to_embedded_json()
     shuffle_button.click(shuffle_button_on_click, [chart_info_state, shuffle_strength_field], [hidden_graph_data], )
 
