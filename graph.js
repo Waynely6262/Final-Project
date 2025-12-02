@@ -293,7 +293,7 @@ function animateSwap(index1, index2, duration) {
     originalBar2.style.visibility = "hidden";
 
     // run animation
-    animateSwapElements(bar1, bar2, duration, easeInOutExpo, () => {
+    animateSwapElements(bar1, bar2, duration, easeInOutQuad, () => {
         bar1.remove();
         bar2.remove();
         
@@ -312,8 +312,7 @@ function update() {
     assert(graphElement, `Graph container element not found; are you using "graph" as the element ID?`);
 
     updateBars(data);
-    console.log(data.dt * 1000);
-    if (data.swapping) animateSwap(data.s0, data.s1, data.dt * 1000);
+    if (data.swapping && data.animate_swaps) animateSwap(data.s0, data.s1, data.dt * 1000);
 }
 
 // Main

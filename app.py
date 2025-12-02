@@ -1,4 +1,4 @@
-from math import floor, sqrt
+from math import floor, log
 from deprecated import deprecated
 import random as rand
 from asyncio import sleep as wait
@@ -114,13 +114,24 @@ class VisualState:
     s1: int | None = None # Second swap index
     dt: float = 0.05 # Time delta between frames
     swapping: bool = False # Whether a swap is occurring. The swap indexes will be coloured differently if (swapping)
-    animate_swaps: bool = True
+    animate_swaps: bool = True # Whether to animate swaps
+    
     def __init__(self):
         self.arr = regenerate([])
+        self.animate_swaps = True # Make sure __dict__ knows this value exists? Idk if this is necessary
+
+    def reset_visuals(self):
+        self.i0 = 0
+        self.i1 = len(self.arr) - 1
+        self.swapping = False
+        self.s0 = None
+        self.s1 = None
+        self.pv = None
+        self.dt = 0
 
     def get_wait_multiplier_for_current_state(self) -> float:
         if not (self.s0 and self.s1): return 1
-        return 1 + sqrt(abs(self.s0 - self.s1)) or 1
+        return log(2 + abs(self.s0 - self.s1), 2)
     
     def to_embedded_json(self) -> str:
         json_src = json.dumps(self.__dict__)
@@ -321,7 +332,7 @@ with gr.Blocks() as demo:
 
     with gr.Row():
         show_swaps_option = gr.Checkbox(label="Show Swaps", value=True)
-        animate_swaps_option = gr.Checkbox(label="Animate Swaps", value=session_info_state.value.animate_swaps)
+        animate_swaps_option = gr.Checkbox(label="Animate Swaps", value=chart_info_state.value.animate_swaps)
 
     pv_alpha_use_random_checkbox = gr.Checkbox(label="Use Random Pivot", value=False)
     pv_alpha_slider = gr.Slider(label="Custom Pivot Point", minimum=0, maximum=1, value=1)
@@ -421,6 +432,8 @@ with gr.Blocks() as demo:
             yield chart_info.to_embedded_json()
         else:
             gr.Info("The array is fully sorted.")
+            pass
+        yield chart_info.to_embedded_json() # DO I NEED THIS?? LET'S FIND OUT.
 
     sort_button.click(sort_button_on_click, [
         chart_info_state,
@@ -445,6 +458,7 @@ with gr.Blocks() as demo:
 
         # Regenerate randomized elements for the array
         regenerate(chart_info.arr, floor(element_count_src))
+        chart_info.reset_visuals()
 
         # Update states
         return chart_info.to_embedded_json()
@@ -453,6 +467,7 @@ with gr.Blocks() as demo:
     # Since this doesn't affect the number of elements in the list, it won't cause the program to fail. I will let this be callable mid-sort, just for fun
     def shuffle_button_on_click(chart_info: VisualState, shuffle_strength: float):
         shuffle(chart_info.arr, shuffle_strength)
+        chart_info.reset_visuals()
         return chart_info.to_embedded_json()
     shuffle_button.click(shuffle_button_on_click, [chart_info_state, shuffle_strength_field], [hidden_graph_data], )
 
