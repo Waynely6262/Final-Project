@@ -146,7 +146,8 @@ class InternalState:
     step_sort_jobs: list[Job] | None = None
     call_id: int = START_CALL_ID
     pv_alpha: float = 1.0
-
+    show_queries: bool = True
+    show_comparisons: bool = True
 
     # Functions used to ensure that only one thing is running at once.
     def new_lock(self):
@@ -331,7 +332,8 @@ with gr.Blocks() as demo:
     shuffle_strength_field = gr.Slider(label= "Shuffle Strength", minimum=0.0, maximum=1.0, value=0.1)
 
     with gr.Row():
-        show_swaps_option = gr.Checkbox(label="Show Swaps", value=True)
+        show_comparisons_option = gr.Checkbox(label="Show Comparisons", value=True)
+        show_queries_option = gr.Checkbox(label="Show Swaps", value=True)
         animate_swaps_option = gr.Checkbox(label="Animate Swaps", value=chart_info_state.value.animate_swaps)
 
     pv_alpha_use_random_checkbox = gr.Checkbox(label="Use Random Pivot", value=False)
@@ -356,7 +358,6 @@ with gr.Blocks() as demo:
         session_info: InternalState,
         wait_interval: float,
         steps_src: float, # This has been made to be received as an int, but I'm leaving the parsing as a redundancy.
-        show_swaps: bool,
         use_random_pivot: bool
     ):
 
@@ -367,19 +368,21 @@ with gr.Blocks() as demo:
         
         try:
             while session_info.is_lock_owner(this_id):
-                # Under the assumption that chart_info's reference is maintained, we don't need any return values! However, it could still be worth noting where modifications are inexplicitly made.
-                job_finished = next(quick_sort_generator) # modifies chart_info
-                if show_swaps:
-                    final_wait_interval = wait_interval * chart_info.get_wait_multiplier_for_current_state()
-                    chart_info.dt = final_wait_interval
-                    yield chart_info.to_embedded_json()
-                    await wait(final_wait_interval)
+                # job_finished is a bool that stores whether a job was completed on this yield
+                job_finished = next(quick_sort_generator)
+                if session_info.show_queries:
+                    if session_info.show_comparisons or chart_info.swapping:
+                        final_wait_interval = wait_interval * chart_info.get_wait_multiplier_for_current_state()
+                        chart_info.dt = final_wait_interval
+                        yield chart_info.to_embedded_json()
+                        await wait(final_wait_interval)
+
                 elif job_finished:
                     chart_info.partitioning = True
                     yield chart_info.to_embedded_json()
                     chart_info.partitioning = False
                     await wait(wait_interval)
-        except StopIteration as result:
+        except StopIteration:
             pass
         
         # If this thread doesn't hold the latest call_id, exit to avoid interrupting a different UI update
@@ -392,7 +395,6 @@ with gr.Blocks() as demo:
             session_info_state,
             iteration_interval_slider,
             iterations_per_step_slider,
-            show_swaps_option,
             pv_alpha_use_random_checkbox,
         ], 
         [
@@ -400,7 +402,7 @@ with gr.Blocks() as demo:
         ], queue=True, concurrency_limit=None, 
     )
 
-    async def sort_button_on_click(chart_info: VisualState, session_info: InternalState, wait_interval: float, show_swaps: bool, use_random_pivot: bool):
+    async def sort_button_on_click(chart_info: VisualState, session_info: InternalState, wait_interval: float, use_random_pivot: bool):
 
         # If pivot_alpha isn't 1, the sort function will unsort the array. This if statement will prevent that from happening
         if not is_sorted(chart_info.arr):
@@ -411,12 +413,14 @@ with gr.Blocks() as demo:
 
             try:
                 while session_info.is_lock_owner(this_id):
-                    job_finished = next(quick_sort_generator) # modifies chart_info
-                    if show_swaps:
-                        final_wait_interval = wait_interval * chart_info.get_wait_multiplier_for_current_state()
-                        chart_info.dt = final_wait_interval
-                        yield chart_info.to_embedded_json()
-                        await wait(final_wait_interval)
+                    # job_finished is a bool
+                    job_finished = next(quick_sort_generator)
+                    if session_info.show_queries:
+                        if session_info.show_comparisons or chart_info.swapping:
+                            final_wait_interval = wait_interval * chart_info.get_wait_multiplier_for_current_state()
+                            chart_info.dt = final_wait_interval
+                            yield chart_info.to_embedded_json()
+                            await wait(final_wait_interval)
                         
                     elif job_finished:
                         chart_info.partitioning = True
@@ -424,22 +428,20 @@ with gr.Blocks() as demo:
                         chart_info.partitioning = False
                         await wait(wait_interval)
 
-            except StopIteration as result:
+            except StopIteration:
                 pass
 
             session_info.close_lock(this_id)
-
-            yield chart_info.to_embedded_json()
+            
         else:
             gr.Info("The array is fully sorted.")
             pass
-        yield chart_info.to_embedded_json() # DO I NEED THIS?? LET'S FIND OUT.
+        yield chart_info.to_embedded_json() # DO I NEED THIS?? LET'S FIND OUT. (Yes we need this, otherwise chart_info_state will be set to nil because it's listed as an output component and I guess at least one yield/return is required. But we cannot return a value on an async function)
 
     sort_button.click(sort_button_on_click, [
         chart_info_state,
         session_info_state,
         iteration_interval_slider, # How long to wait between each update
-        show_swaps_option, # Whether to show swaps being performed, or to just show partitions
         pv_alpha_use_random_checkbox, # Whether to randomize the pivot alpha
     ], [hidden_graph_data], queue=True, concurrency_limit=None, )
 
@@ -480,6 +482,16 @@ with gr.Blocks() as demo:
         chart_info.dt = interval
         return
     iteration_interval_slider.change(iteration_interval_slider_on_change, [chart_info_state, iteration_interval_slider], [])
+
+    # Checkbox row
+
+    def show_queries_option_on_change(session_info: InternalState, show_queries: bool): # Controls whether swaps and comparisons are shown
+        session_info.show_queries = show_queries
+    show_queries_option.change(show_queries_option_on_change, [session_info_state, show_queries_option])
+
+    def show_comparisons_option_on_change(session_info: InternalState, show_comparisons: bool):
+        session_info.show_comparisons = show_comparisons
+    show_comparisons_option.change(show_comparisons_option_on_change, [session_info_state, show_comparisons_option])
 
     def animate_swaps_option_on_change(chart_info: VisualState, animate_swaps: bool):
         chart_info.animate_swaps = animate_swaps
