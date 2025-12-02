@@ -1,4 +1,4 @@
-from math import floor
+from math import floor, sqrt
 from deprecated import deprecated
 import random as rand
 from asyncio import sleep as wait
@@ -114,9 +114,13 @@ class VisualState:
     s1: int | None = None # Second swap index
     dt: float = 0.05 # Time delta between frames
     swapping: bool = False # Whether a swap is occurring. The swap indexes will be coloured differently if (swapping)
+    animate_swaps: bool = True
     def __init__(self):
         self.arr = regenerate([])
 
+    def get_wait_multiplier_for_current_state(self) -> float:
+        if not (self.s0 and self.s1): return 1
+        return 1 + sqrt(abs(self.s0 - self.s1)) or 1
     
     def to_embedded_json(self) -> str:
         json_src = json.dumps(self.__dict__)
@@ -131,7 +135,6 @@ class InternalState:
     step_sort_jobs: list[Job] | None = None
     call_id: int = START_CALL_ID
     pv_alpha: float = 1.0
-
 
 
     # Functions used to ensure that only one thing is running at once.
@@ -299,11 +302,11 @@ with gr.Blocks() as demo:
 
     # chart_info_state stores components relevant to updating the html bar chart.
     # This gr.State object is specified as "part of an event listener's output" whenever the event handler will update the chart info state.
-    chart_info_state = gr.State(VisualState())
+    chart_info_state = gr.State(value=VisualState())
     
     # session_info_state stores components that are irrelevant to graphics: Essentially, values that are only used internally (in the back-end)
     # An assumption is made that type(gr.State()) objects pass their 'value' attribute whenever the gr.State object is used as input, meaning that references are maintained and session_info never needs to be used as output.
-    session_info_state = gr.State(InternalState())
+    session_info_state = gr.State(value=InternalState())
 
     gr.Markdown("# Quicksort: by Wayne")
     
@@ -316,7 +319,9 @@ with gr.Blocks() as demo:
     element_count_slider = gr.Slider(label="Total Elements", minimum=1, maximum=MAX_ELEMENTS, value=50, step=1)
     shuffle_strength_field = gr.Slider(label= "Shuffle Strength", minimum=0.0, maximum=1.0, value=0.1)
 
-    show_swaps_option = gr.Checkbox(label="Show Swaps", value=True)
+    with gr.Row():
+        show_swaps_option = gr.Checkbox(label="Show Swaps", value=True)
+        animate_swaps_option = gr.Checkbox(label="Animate Swaps", value=session_info_state.value.animate_swaps)
 
     pv_alpha_use_random_checkbox = gr.Checkbox(label="Use Random Pivot", value=False)
     pv_alpha_slider = gr.Slider(label="Custom Pivot Point", minimum=0, maximum=1, value=1)
@@ -354,8 +359,10 @@ with gr.Blocks() as demo:
                 # Under the assumption that chart_info's reference is maintained, we don't need any return values! However, it could still be worth noting where modifications are inexplicitly made.
                 job_finished = next(quick_sort_generator) # modifies chart_info
                 if show_swaps:
+                    final_wait_interval = wait_interval * chart_info.get_wait_multiplier_for_current_state()
+                    chart_info.dt = final_wait_interval
                     yield chart_info.to_embedded_json()
-                    await wait(wait_interval)
+                    await wait(final_wait_interval)
                 elif job_finished:
                     chart_info.partitioning = True
                     yield chart_info.to_embedded_json()
@@ -395,8 +402,11 @@ with gr.Blocks() as demo:
                 while session_info.is_lock_owner(this_id):
                     job_finished = next(quick_sort_generator) # modifies chart_info
                     if show_swaps:
+                        final_wait_interval = wait_interval * chart_info.get_wait_multiplier_for_current_state()
+                        chart_info.dt = final_wait_interval
                         yield chart_info.to_embedded_json()
-                        await wait(wait_interval)
+                        await wait(final_wait_interval)
+                        
                     elif job_finished:
                         chart_info.partitioning = True
                         yield chart_info.to_embedded_json()
@@ -456,6 +466,9 @@ with gr.Blocks() as demo:
         return
     iteration_interval_slider.change(iteration_interval_slider_on_change, [chart_info_state, iteration_interval_slider], [])
 
+    def animate_swaps_option_on_change(chart_info: VisualState, animate_swaps: bool):
+        chart_info.animate_swaps = animate_swaps
+    animate_swaps_option.change(animate_swaps_option_on_change, [chart_info_state, animate_swaps_option])
 
 
 demo.launch(share=True, head=f"<script defer>{graph_builder_src_js}</script>", 

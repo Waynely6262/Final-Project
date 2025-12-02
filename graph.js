@@ -52,14 +52,24 @@ function assert(condition, message) { // functions like the lua 'assert' functio
     return condition;
 }
 
-// Default easing function
 function easeInOutQuad(t) {
     return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 }
 
+function easeInOutExpo(x) {
+    return x === 0
+    ? 0
+    : x === 1
+    ? 1
+    : x < 0.5 ? Math.pow(2, 20 * x - 10) / 2
+    : (2 - Math.pow(2, -20 * x + 10)) / 2;
+}
+
+const DEFAULT_EASE = easeInOutQuad;
+
 // Tweens from one number to another, with a handler and an optional onComplete callback for chaining
 function TweenNumber(start, end, duration, ease, onUpdate, onComplete) {
-    ease = ease || easeInOutQuad;
+    ease = ease || DEFAULT_EASE;
     duration = duration || 500;
     
     const startTime = performance.now();
@@ -270,20 +280,24 @@ function animateSwap(index1, index2, duration) {
     
     const bars = barContainer.children;
 
+    // Get the "source" bars
     const originalBar1 = assert(bars[index1], `Bar at i0 ${index1} not found`);
     const originalBar2 = assert(bars[index2], `Bar at i1 ${index2} not found`);
 
+    // Copy and parent to graphOverlay element
     const bar1 = copyElementToOverlay(originalBar1);
     const bar2 = copyElementToOverlay(originalBar2);
 
+    // hide original bars
     originalBar1.style.visibility = "hidden";
     originalBar2.style.visibility = "hidden";
 
-    
-    animateSwapElements(bar1, bar2, duration, easeInOutQuad, () => {
+    // run animation
+    animateSwapElements(bar1, bar2, duration, easeInOutExpo, () => {
         bar1.remove();
         bar2.remove();
-
+        
+        // show original bars
         originalBar1.style.visibility = "visible";
         originalBar2.style.visibility = "visible";
     });
