@@ -41,6 +41,7 @@ const HIGHLIGHT_STRENGTH = 0.4;
 const MAX_BORDER_RADIUS = 16;
 const TOTAL_HEIGHT_PX = 200;
 const TOTAL_WIDTH_PX = 2000;
+const SWAP_ANIMATION_Y_OFFSET = 0.25
 
 let bar_width_memo = {};     // same semantics as Python
 
@@ -63,6 +64,10 @@ function easeInOutExpo(x) {
     ? 1
     : x < 0.5 ? Math.pow(2, 20 * x - 10) / 2
     : (2 - Math.pow(2, -20 * x + 10)) / 2;
+}
+
+function wave(x) {
+    return Math.sin(x * Math.PI)
 }
 
 const DEFAULT_EASE = easeInOutQuad;
@@ -148,8 +153,9 @@ function animateSwapElements(div1, div2, duration, ease, onComplete) {
     // div2.style.bottom = y2 + "px";
     
     TweenNumber(0, 1, duration, ease, (t) => {
-        div1.style.transform = `translate(${deltaX * t}px, 0)`;
-        div2.style.transform = `translate(${-deltaX * t}px, 0)`;
+        let dy = -wave(t) * SWAP_ANIMATION_Y_OFFSET * Math.pow(Math.abs(deltaX), 0.75);
+        div1.style.transform = `translate(${deltaX * t}px, ${dy}px)`;
+        div2.style.transform = `translate(${-deltaX * t}px, ${-dy}px)`;
     }, onComplete);
 }
 
@@ -162,7 +168,7 @@ let barContainer; // Group 1
 let graphOverlay; // Group 1
 
 
-function copyElementToOverlay(original) {
+function copyElementToOverlay(original) { // ChatGPT
     assert(graphOverlay, "Graph overlay not ready!");
 
     // Get bounding box relative to viewport
@@ -270,6 +276,15 @@ function updateBars(data) {
     }
 }
 
+function swapDom(a, b) {
+    const aNext = a.nextSibling;
+    const bNext = b.nextSibling;
+    const parent = a.parentNode;
+
+    parent.insertBefore(a, bNext);
+    parent.insertBefore(b, aNext);
+}
+
 function animateSwap(index1, index2, duration) {
     assert(graphElement, "Graph element not ready!");
     assert(barContainer, "Bar container not ready!");
@@ -293,6 +308,7 @@ function animateSwap(index1, index2, duration) {
     originalBar1.style.visibility = "hidden";
     originalBar2.style.visibility = "hidden";
 
+    swapDom(originalBar1, originalBar2); // swap the two actual elements so when their ghosts disappear, this is guaranteed to be updated
 
     // Keep track of how many animations are being run on this bar; only the final animation's onComplete callback should set visibility=true,
     // otherwise the element will be visible again too early
@@ -302,18 +318,21 @@ function animateSwap(index1, index2, duration) {
     
     // run animation
     animateSwapElements(bar1, bar2, duration, easeInOutExpo, () => {
-        bar1.remove();
-        bar2.remove();
         
-        // show original bars, only if this animation is the only active animator of the bar
-        // JS auto-interprets strings to numbers when performing arithmetic operations
-        originalBar1.dataset.animationCount = Number(originalBar1.dataset.animationCount || 0) - 1;
-        originalBar2.dataset.animationCount = Number(originalBar2.dataset.animationCount || 0) - 1;
+        // Delay by one frame because the util function TweenNumber will immediately call onComplete, skipping the rendering for the final frame update
+        requestAnimationFrame(() => {
+            bar1.remove();
+            bar2.remove();
+            
+            // show original bars, only if this animation is the only active animator of the bar
+            // JS auto-interprets strings to numbers when performing arithmetic operations
+            originalBar1.dataset.animationCount = Number(originalBar1.dataset.animationCount || 0) - 1;
+            originalBar2.dataset.animationCount = Number(originalBar2.dataset.animationCount || 0) - 1;
 
-        // As long as math is mathing, the animationCount at this point should never be below 0
-        if (originalBar1.dataset.animationCount === "0") originalBar1.style.visibility = "visible";
-        if (originalBar2.dataset.animationCount === "0") originalBar2.style.visibility = "visible";
-        
+            // As long as math is mathing, the animationCount at this point should never be below 0
+            if (originalBar1.dataset.animationCount === "0") originalBar1.style.visibility = "visible";
+            if (originalBar2.dataset.animationCount === "0") originalBar2.style.visibility = "visible";
+        });    
     });
     
 }

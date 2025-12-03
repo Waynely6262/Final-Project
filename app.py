@@ -592,19 +592,17 @@ with gr.Blocks() as demo:
 
     html_chart = gr.HTML(value=f"<div></div>", elem_id=HTML_GRAPH_ELEMENT_ID)
 
-    algorithm_option = gr.Dropdown(choices=list(sort_algorithms.keys()), value=session_info_state.value.algorithm)
+    algorithm_option = gr.Dropdown(label="Sort Algorithm", choices=list(sort_algorithms.keys()), value=session_info_state.value.algorithm)
     # Visual update controls
     with gr.Row():
-        gr.Markdown("# View")
         show_queries_option = gr.Checkbox(label="Show Queries", value=session_info_state.value.show_queries) # Uses session info because py prompts visual updates, so js doesnt need this
         show_comparisons_option = gr.Checkbox(label="Show Comparisons", value=session_info_state.value.show_comparisons) # Uses session info because py prompts visual updates, so js doesnt need this
         animate_swaps_option = gr.Checkbox(label="Animate Swaps", value=chart_info_state.value.animate_swaps) # Uses chart info because js needs to know whether to animate
 
     # Pivot controls
     with gr.Row():
-        gr.Markdown("# Quick-Sort Options")
-        use_random_pv_option = gr.Checkbox(label="Use Random Pivot", value=session_info_state.value.use_random_pv)
-        pv_alpha_slider = gr.Slider(label="Custom Pivot Point", minimum=0, maximum=1, value=1)
+        use_random_pv_option = gr.Checkbox(label="Use Random Pivot (quicksort)", value=session_info_state.value.use_random_pv)
+        pv_alpha_slider = gr.Slider(label="Custom Pivot Point (quicksort)", minimum=0, maximum=1, value=1)
 
     # Unsorting controls
     with gr.Row():
