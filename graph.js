@@ -290,6 +290,9 @@ function animateSwap(index1, index2, duration) {
     const bar1 = copyElementToOverlay(originalBar1);
     const bar2 = copyElementToOverlay(originalBar2);
 
+    // The original bars may be hidden because they're part of an on-going animation. To avoid this, make sure the cloned bars are visible
+    bar1.style.visibility = "visible";
+    bar2.style.visibility = "visible";
     // hide original bars
     originalBar1.style.visibility = "hidden";
     originalBar2.style.visibility = "hidden";
