@@ -398,9 +398,9 @@ function update(data) {
     // update bar appearance
     updateBars(data);
     
-    // handle focused swap
-
+    
     if (data.animate_swaps) {
+        // handle focused swap
         if (data.swapping) animateSwap(data.s0, data.s1, data.dt * 1000);
         
         // handle bulk swaps
@@ -427,7 +427,6 @@ function onNewData() {
     if (framesWaiting.length > 1) {
         return;
     }
-    // After the if-statement, framesWaiting.length === 1
 
     function onFrame() {
         update(framesWaiting.remove())
