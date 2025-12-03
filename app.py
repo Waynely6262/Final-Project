@@ -185,13 +185,18 @@ def bubble_sort_iterative(chart_info: VisualState, start: int | None=None, end: 
     l = len(chart_info.arr)
     fin = l - 1
 
-    chart_info.i1 = fin
     chart_info.partitioning = True
+    start = start or 0 # For 0, which is falsey: evaluate 'start'= 0 -> evaluate '0'= 0 -> result: 0, therefore making sure 'start' isn't 0 is redundant
+    end = end or l # If end is 0, this thing doesn't run anyway so 0 is fine!
 
-    for query_begin in range(start or 0, min(fin, end or fin)):
+    chart_info.i0 = start
+    
+    for query_begin in range(start, min(l, end)):
         did_swap = False
-        chart_info.i0 = query_begin
-        for query in range(query_begin, fin - 1):
+
+        eoq = l - query_begin + start
+        chart_info.i1 = eoq
+        for query in range(eoq - 1):
             plus1 = query + 1
 
             chart_info.pv = query
@@ -212,6 +217,45 @@ def bubble_sort_iterative(chart_info: VisualState, start: int | None=None, end: 
     chart_info.partitioning = False
                 
         
+def insertion_sort_iterative(chart_info: VisualState, start: int | None =None, end: int | None=None):
+
+    chart_info.partitioning = True
+
+    l = len(chart_info.arr)
+
+    chart_info.i1 = l
+
+    end = end != None and end or l
+
+    free_index = start or 0
+
+    chart_info.i0 = 0
+
+    for i in range(free_index + 1, min(l, end)):
+        chart_info.swapping = True
+
+        for self_i in range(i, 0, -1):
+            query_i = self_i - 1
+            if chart_info.arr[query_i] < chart_info.arr[self_i]:
+                chart_info.swapping = False
+                chart_info.s1 = None
+                chart_info.s0 = None
+                chart_info.pv = query_i
+                yield
+                break
+            # Subject's index is always going to be q + 1 because this loop will keep moving subject
+            chart_info.i1 = i
+            chart_info.s0 = query_i
+            chart_info.s1 = self_i
+            chart_info.pv = self_i
+            yield
+            chart_info.arr[query_i], chart_info.arr[self_i] = chart_info.arr[self_i], chart_info.arr[query_i]
+
+
+                
+        
+
+        
 
 
 # SELECTION SORT
@@ -224,7 +268,8 @@ def selection_sort_iterative(chart_info: VisualState, start: int | None=None, en
 
     chart_info.i1 = l
 
-    for i in range(start or 0, min(final_index, end or final_index)):
+    end = end != None and end or final_index
+    for i in range(start or 0, min(final_index, end)):
         chart_info.swapping = False
         chart_info.pv = i
         chart_info.i0 = i
@@ -233,7 +278,8 @@ def selection_sort_iterative(chart_info: VisualState, start: int | None=None, en
         low_i = i
         low_v = chart_info.arr[i]
         # If the lower bound is greater than the upper bound, the loop just won't run, so we don't have to worry about it
-        for q in range(i + 1, final_index - 1):
+
+        for q in range(i + 1, l):
             chart_info.s1 = q
             if chart_info.arr[q] < low_v:
                 low_v = chart_info.arr[q]
@@ -414,7 +460,36 @@ def full_bubblesort_gen(chart_info: VisualState, session_info: InternalState):
         pass
 
 
+# Insertion sort
 
+def step_insertionsort_gen(chart_info: VisualState, session_info: InternalState, steps: int):
+
+    if session_info.step_sort_jobs:
+        current_job = session_info.step_sort_jobs.pop()
+        i0 = current_job.i0
+    else:
+        i0 = 0
+
+    generator = insertion_sort_iterative(chart_info, start=i0, end=i0 + steps)
+    
+    try:
+        while True:
+            yield next(generator)
+            
+    except StopIteration:
+        session_info.step_sort_jobs = [Job(i0 + steps, -1)]
+        pass
+
+def full_insertionsort_gen(chart_info: VisualState, session_info: InternalState):
+
+    generator = insertion_sort_iterative(chart_info)
+    
+    try:
+        while True:
+            yield next(generator)
+            
+    except StopIteration:
+        pass
 
 # Step-sort
 def step_quicksort_gen(
@@ -486,6 +561,7 @@ sort_algorithms: dict[str, list[Any]] = {
     "Quick-Sort": [step_quicksort_gen, full_quicksort_gen],
     "Selection-Sort": [step_selectionsort_gen, full_selectionsort_gen],
     "Bubble-Sort": [step_bubblesort_gen, full_bubblesort_gen],
+    "Insertion-Sort": [step_insertionsort_gen, full_insertionsort_gen],
 }
 
 # END OF GRADIO HANDLERS
@@ -519,12 +595,14 @@ with gr.Blocks() as demo:
     algorithm_option = gr.Dropdown(choices=list(sort_algorithms.keys()), value=session_info_state.value.algorithm)
     # Visual update controls
     with gr.Row():
+        gr.Markdown("# View")
         show_queries_option = gr.Checkbox(label="Show Queries", value=session_info_state.value.show_queries) # Uses session info because py prompts visual updates, so js doesnt need this
         show_comparisons_option = gr.Checkbox(label="Show Comparisons", value=session_info_state.value.show_comparisons) # Uses session info because py prompts visual updates, so js doesnt need this
         animate_swaps_option = gr.Checkbox(label="Animate Swaps", value=chart_info_state.value.animate_swaps) # Uses chart info because js needs to know whether to animate
 
     # Pivot controls
     with gr.Row():
+        gr.Markdown("# Quick-Sort Options")
         use_random_pv_option = gr.Checkbox(label="Use Random Pivot", value=session_info_state.value.use_random_pv)
         pv_alpha_slider = gr.Slider(label="Custom Pivot Point", minimum=0, maximum=1, value=1)
 
@@ -542,7 +620,7 @@ with gr.Blocks() as demo:
     with gr.Row():
         with gr.Column():
             iterations_per_step_slider = gr.Slider(label="Iterations per Step", minimum=1, maximum=10, value=1, step=1)
-            step_button = gr.Button("Step Sort")
+            step_button = gr.Button("Step")
         with gr.Column():
             iteration_interval_slider = gr.Slider(label="Iteration Interval (seconds)", minimum=0.001, maximum=2, value=session_info_state.value.wait_interval)
             stop_button = gr.Button("Stop Sorting (May not respond immediately for large arrays)")

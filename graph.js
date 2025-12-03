@@ -150,11 +150,7 @@ function animateSwapElements(div1, div2, duration, ease, onComplete) {
     TweenNumber(0, 1, duration, ease, (t) => {
         div1.style.transform = `translate(${deltaX * t}px, 0)`;
         div2.style.transform = `translate(${-deltaX * t}px, 0)`;
-    }, () => {
-        div1.style.transform = "";
-        div2.style.transform = "";
-        if (onComplete) onComplete();
-    });
+    }, onComplete);
 }
 
 
