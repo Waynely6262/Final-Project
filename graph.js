@@ -1,3 +1,53 @@
+class LinkedListNode {
+    constructor(thing) {
+        this.content = thing;
+        this.next = null;
+    }
+    
+    link(node) {
+        this.next = node;
+    }
+}
+
+class Queue {
+    constructor() {
+        this.head = null;
+        this.tail = null;
+        this.length = 0;
+    }
+
+    add(thing) {
+        
+        const newNode = new LinkedListNode(thing);
+        // adds an element to the tail
+        if (this.tail) {
+            this.tail.link(newNode);
+        } else {
+            this.head = newNode;
+        }
+        this.tail = newNode;
+        this.length += 1;
+    }
+
+    remove() {
+
+        // removes the head, setting the linked element as the new head
+        if (this.length == 0) {
+            return null;
+        }
+        this.length -= 1;
+        const unlinked = this.head;
+
+        this.head = this.head.next;
+
+        if (this.head == null) {
+            this.tail = null
+        }
+        return unlinked.content;
+    }
+}
+
+
 class Color {
     constructor(r, g, b) {
         this.r = r;
@@ -308,7 +358,11 @@ function animateSwap(index1, index2, duration) {
     originalBar1.style.visibility = "hidden";
     originalBar2.style.visibility = "hidden";
 
-    swapDom(originalBar1, originalBar2); // swap the two actual elements so when their ghosts disappear, this is guaranteed to be updated
+    // swap the two actual elements so when their ghosts disappear, this is guaranteed to be updated
+    // This is delayed by one frame for the bulk-swap feature, which will read the 'final state' by accident because the dom elements were swapped already
+    // requestAnimationFrame(() => {
+        swapDom(originalBar1, originalBar2);
+    // });
 
     // Keep track of how many animations are being run on this bar; only the final animation's onComplete callback should set visibility=true,
     // otherwise the element will be visible again too early
@@ -337,15 +391,51 @@ function animateSwap(index1, index2, duration) {
     
 }
 
-function update() {
+
+function update(data) {
+    
+    assert(graphElement, `Graph container element not found; are you using "graph" as the element ID?`);
+    // update bar appearance
+    updateBars(data);
+    
+    // handle focused swap
+
+    if (data.animate_swaps) {
+        if (data.swapping) animateSwap(data.s0, data.s1, data.dt * 1000);
+        
+        // handle bulk swaps
+        
+        if (data.bulk_swap) {
+            for (let i = 0; i < data.bulk_swap.length; i++) {
+                animateSwap(data.bulk_swap[i][0], data.bulk_swap[i][1], data.dt * 1000);
+            }
+        }
+    }
+}
+
+let framesWaiting = new Queue();
+
+// Limits data to be processed per-frame, so nothing is skipped
+function onNewData() {
+
     assert(dataHolderElement, "Data holder element not ready!");
     // dataElement is expected to be a <script> with JSON content in its innerHTML
+
     const data = JSON.parse(dataHolderElement.innerHTML);
+    
+    framesWaiting.add(data);
+    if (framesWaiting.length > 1) {
+        return;
+    }
+    // After the if-statement, framesWaiting.length === 1
 
-    assert(graphElement, `Graph container element not found; are you using "graph" as the element ID?`);
-
-    updateBars(data);
-    if (data.swapping && data.animate_swaps) animateSwap(data.s0, data.s1, data.dt * 1000);
+    function onFrame() {
+        update(framesWaiting.remove())
+        if (framesWaiting.length > 0) {
+            requestAnimationFrame(onFrame)
+        }
+    }
+    requestAnimationFrame(onFrame)
 }
 
 // Main
@@ -390,8 +480,8 @@ waitForElementById("graph-data", (ele) => {
     dataHolderElement = ele;
 
     new MutationObserver((mutations, self) => {
-        update();
+        onNewData();
     }).observe(dataHolderElement, { characterData: true, childList: true, subtree: true });
     // Initial build
-    update();
+    onNewData();
 });

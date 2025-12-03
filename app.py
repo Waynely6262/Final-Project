@@ -1,4 +1,4 @@
-from typing import Any, AsyncGenerator, Generator
+from typing import Any, AsyncGenerator, Generator, Callable
 from math import floor, log
 import random as rand
 from asyncio import sleep as wait
@@ -28,8 +28,8 @@ def shuffle(arr: list[int], shuffle_strength: float=1.0): # o(n) time worst case
         j = rand.randint(0, i)
         arr[i], arr[j] = arr[j], arr[i]
     return arr
-# END OF UTILS
 
+# END OF UTILS
 
 # UTILITY CLASSES
 class Job:
@@ -53,7 +53,7 @@ class Color:
         self.b = b
 
     @classmethod
-    def from_hex(_, src: str):
+    def from_hex(cls, src: str):
         src = src.lstrip("#")
         
         r = int(src[0:2], 16)
@@ -98,6 +98,11 @@ MAX_BORDER_RADIUS = 16
 # Chart Size
 TOTAL_HEIGHT_PX = 200
 TOTAL_WIDTH_PX = 2000
+# Other
+
+MAXIMUM_ELEMENTS_FOR_SHUFFLE_ANIMATION = 32
+
+
 # END OF CONFIG
 
 # CLASSES
@@ -112,6 +117,7 @@ class VisualState:
     pv: int | None = None # Pivot index
     s0: int | None = None # First swap index
     s1: int | None = None # Second swap index
+    bulk_swap: list[tuple[int,int]] | None = None # A list of 2-element arrays for rendering multiple swaps at once: {[0] = s0, [1] = s1, [2] = dt}
     dt: float = 0 # Expected time delay before proceeding
     swapping: bool = False # Whether a swap is occurring. The swap indexes will be coloured differently if (swapping)
     animate_swaps: bool = True # Whether to animate swaps
@@ -129,14 +135,63 @@ class VisualState:
         self.pv = None
         self.dt = 0
 
+        
+    def convert_bulk_swap_attribute_to_antisymmetric_and_irreflexive(self):
+
+        # For indices that swapped places, there will be (a,b) and (b,a). This will cause the animation to run the same thing.
+        # This means, in discrete math terms:
+        # Given the relation of R = {kEN, 0 <= k < len(chart_info.arr): (chart_info.s[k][0], chart_info.s[k][1])}
+        # R must be antisymmetric.
+        # R does not have to be irreflexive, but it can be done to optimize data transfer (sending (a,a) is useless and takes a couple bytes)
+        
+        if not self.bulk_swap: return
+        pairs: dict[int, int] = {}
+        # Iterate backwards so popping doesn't affect indexing
+        for i in range(len(self.bulk_swap) - 1, -1, -1):
+
+            relation: tuple[int,int] = self.bulk_swap[i]
+            a = relation[0]
+            b = relation[1]
+
+            # Irreflexive
+            if a == b:
+                self.bulk_swap.pop(i)
+                continue
+            # Antisymmetric
+            if b in pairs and pairs[b] == a:
+                self.bulk_swap.pop(i)
+                continue
+            pairs[a] = b
+
+    def get_wait_multiplier_for(self, s0: int, s1: int) -> float:
+        return log(2 + abs(s0 - s1), 2)
+
     def get_wait_multiplier_for_current_state(self) -> float:
         if not self.animate_swaps: return 1 # The purpose of the delay was just to make sure the animation doesn't happen too quickly if elements are further apart. If animatiosn aren't happening, just use a multiplier of 1
         if not (self.s0 and self.s1): return 1
-        return log(2 + abs(self.s0 - self.s1), 2)
+        return self.get_wait_multiplier_for(self.s0, self.s1)
     
     def to_embedded_json(self) -> str:
         json_src = json.dumps(self.__dict__)
         return f"<script id=\"{HTML_DATA_HOLDER_ELEMENT_ID}\" type=\"application/json\">{json_src}</script>"
+    
+    def clone(self):
+        new_clone = VisualState()
+
+        read = self.__dict__
+        
+        for k in read:
+            v: Any = read[k]
+            new_v = v
+            if isinstance(v, list):
+                new_v: list[Any] = []
+                for j in range(len(v)):
+                    new_v.append(v[j]) # deepcopying is not supported; I don't know enough python syntax, and it's not required here because this object's maximum depth is known
+
+            setattr(new_clone, k, new_v)
+
+
+        return new_clone
     
 # bounded by 32-bit int lim.
 START_CALL_ID = -2**31
@@ -155,6 +210,8 @@ class InternalState:
     show_comparisons: bool = True
     
     algorithm: str = "Quick-Sort"
+
+    snapshot: VisualState | None = None
 
     # Functions used to ensure that only one thing is running at once.
     def new_lock(self):
@@ -177,13 +234,44 @@ class InternalState:
         # Only the lock owner can close the active lock
         if self.call_id == id:
             self.is_active = False
-    
 # END OF CLASSES
 
+def shuffle_iterative(chart_info: VisualState, shuffle_strength: float=1.0):
+
+
+
+
+    if len(chart_info.arr) < MAXIMUM_ELEMENTS_FOR_SHUFFLE_ANIMATION:
+        # Tracer array, shuffles a set of indices, to be applied later so that animations don't animate on one object multiple times, since an element in the array can be displaced more than once
+        indices: list[int] = []
+        for i in range(len(chart_info.arr)):
+            indices.append(i)
+        shuffle(indices, shuffle_strength)
+
+        # Don't need to set chart.swapping = True because the js side doesn't read this property, the swapping attribute is meant for the focused swap
+        chart_info.bulk_swap = []        
+        for final in range(len(indices)):
+            initial = indices[final]
+            new_2_ele: tuple[int,int] = (initial, final)
+            chart_info.bulk_swap.append(new_2_ele)
+
+        chart_info.dt = 1
+        chart_info.convert_bulk_swap_attribute_to_antisymmetric_and_irreflexive() # Holy long identifier
+        # Run the animation first
+        yield
+        # Update indices based on the antisymmetric and irreflexive data
+        for i in range(len(chart_info.bulk_swap)):
+            data = chart_info.bulk_swap[i]
+            initial = data[0]
+            final = data[1]
+            chart_info.arr[initial], chart_info.arr[final] = chart_info.arr[final], chart_info.arr[initial]
+        chart_info.bulk_swap = None
+    else:
+        shuffle(chart_info.arr, shuffle_strength)
+        yield
 def bubble_sort_iterative(chart_info: VisualState, start: int | None=None, end: int | None=None):
 
     l = len(chart_info.arr)
-    fin = l - 1
 
     chart_info.partitioning = True
     start = start or 0 # For 0, which is falsey: evaluate 'start'= 0 -> evaluate '0'= 0 -> result: 0, therefore making sure 'start' isn't 0 is redundant
@@ -210,9 +298,9 @@ def bubble_sort_iterative(chart_info: VisualState, start: int | None=None, end: 
                 chart_info.arr[query], chart_info.arr[plus1] = chart_info.arr[plus1], chart_info.arr[query]
                 chart_info.swapping = False
             yield
+        yield True
         if not did_swap:
-            chart_info.partitioning = False
-            return
+            break
 
     chart_info.partitioning = False
                 
@@ -241,7 +329,7 @@ def insertion_sort_iterative(chart_info: VisualState, start: int | None =None, e
                 chart_info.s1 = None
                 chart_info.s0 = None
                 chart_info.pv = query_i
-                yield
+                yield True
                 break
             # Subject's index is always going to be q + 1 because this loop will keep moving subject
             chart_info.i1 = i
@@ -592,7 +680,7 @@ with gr.Blocks() as demo:
 
     html_chart = gr.HTML(value=f"<div></div>", elem_id=HTML_GRAPH_ELEMENT_ID)
 
-    algorithm_option = gr.Dropdown(label="Sort Algorithm", choices=list(sort_algorithms.keys()), allow_custom_value=False, value=session_info_state.value.algorithm)
+    algorithm_option = gr.Radio(label="Sort Algorithm", choices=list(sort_algorithms.keys()), value=session_info_state.value.algorithm)
     # Visual update controls
     with gr.Row():
         show_queries_option = gr.Checkbox(label="Show Queries", value=session_info_state.value.show_queries) # Uses session info because py prompts visual updates, so js doesnt need this
@@ -612,6 +700,9 @@ with gr.Blocks() as demo:
         with gr.Column():
             shuffle_strength_field = gr.Slider(label= "Shuffle Strength", minimum=0.0, maximum=1.0, value=0.1)
             shuffle_button = gr.Button("Shuffle Elements")
+        with gr.Column():
+            snapshot_button = gr.Button("Create Save Point")
+            load_snapshot_button = gr.Button("Load Save Point", interactive=False)
             
 
     # Sorting controls
@@ -620,7 +711,7 @@ with gr.Blocks() as demo:
             iterations_per_step_slider = gr.Slider(label="Iterations per Step", minimum=1, maximum=10, value=1, step=1)
             step_button = gr.Button("Step")
         with gr.Column():
-            iteration_interval_slider = gr.Slider(label="Iteration Interval (seconds)", minimum=0.001, maximum=2, value=session_info_state.value.wait_interval)
+            iteration_interval_slider = gr.Slider(label="Iteration Interval (seconds)", minimum=0.001, maximum=0.5, step=0.001, value=session_info_state.value.wait_interval)
             stop_button = gr.Button("Stop Sorting (May not respond immediately for large arrays)")
             sort_button = gr.Button("Complete Sort")
 
@@ -762,6 +853,8 @@ with gr.Blocks() as demo:
 
     def algorithm_option_on_change(session_info: InternalState, new_algorithm: str):
         session_info.algorithm = new_algorithm
+        # Remove any step-sort jobs
+        session_info.step_sort_jobs = None
         # Cancel any running algorithms
         session_info.close_lock(session_info.new_lock())
     algorithm_option.change(algorithm_option_on_change, [session_info_state, algorithm_option])
@@ -789,9 +882,24 @@ with gr.Blocks() as demo:
 
     # Since this doesn't affect the number of elements in the list, it won't cause the program to fail. I will let this be callable mid-sort, just for fun
     def shuffle_button_on_click(chart_info: VisualState, shuffle_strength: float):
-        shuffle(chart_info.arr, shuffle_strength)
+
+        # shuffle(chart_info.arr, shuffle_strength)
+
+
         # chart_info.reset_visuals() # This is disabled because it will modify chart_info.pv, which causes issues because the sort algorithm doesn't reset chart_info.pv even if it's currently active
+        
+        shuffle_generator = shuffle_iterative(chart_info, shuffle_strength)
+
+        try:
+            while True:
+                next(shuffle_generator)
+                chart_info.dt = 0.25*chart_info.get_wait_multiplier_for_current_state()
+                yield chart_info.to_embedded_json()
+        except StopIteration:
+            pass
+
         return chart_info.to_embedded_json()
+
     shuffle_button.click(shuffle_button_on_click, [chart_info_state, shuffle_strength_field], [hidden_graph_data], )
 
     def pv_alpha_slider_on_change(session_info: InternalState, alpha: float):
@@ -826,6 +934,25 @@ with gr.Blocks() as demo:
 
     # end of option row
 
+
+    # save point
+
+
+    def snapshot_button_on_click(chart_info: VisualState, session_info: InternalState):
+        session_info.snapshot = chart_info.clone()
+        session_info.snapshot.reset_visuals()
+        return gr.update(interactive=True)
+    snapshot_button.click(snapshot_button_on_click, [chart_info_state, session_info_state], [load_snapshot_button])
+
+    def load_snapshot_button_on_click(session_info: InternalState):
+        gr.Info("Loading snapshot.. ")  
+        session_info.close_lock(session_info.new_lock())
+        # This button isn't interactable until snapshot_button_on_click is called, and it simultaneously asserts session_info.snapshot, therefore it is safe to read at this point
+        yield session_info.snapshot.clone(), session_info.snapshot.to_embedded_json()
+    load_snapshot_button.click(load_snapshot_button_on_click, [session_info_state], [chart_info_state, hidden_graph_data])
+
+
+    # end of save point
 
 demo.launch(share=True, head=f"<script defer>{graph_builder_src_js}</script>", 
             
