@@ -312,6 +312,7 @@ import gradio as gr
 with open("graph.js", "r") as js_file:
    graph_builder_src_js = js_file.read()
 
+
 with gr.Blocks() as demo:
 
 
@@ -363,7 +364,15 @@ with gr.Blocks() as demo:
             stop_button = gr.Button("Stop Sorting (May not respond immediately for large arrays)")
             sort_button = gr.Button("Complete Sort")
 
-        
+
+    with open("README.md", "r") as instructions_file:
+
+        try:
+            readme_src = instructions_file.read()
+            gr.Markdown(readme_src)
+        except Exception as e:
+            gr.Markdown("Failed to load README instructions.")
+
 
     # END OF INITIALIZE ELEMENTS
 
