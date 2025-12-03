@@ -236,7 +236,7 @@ def insertion_sort_iterative(chart_info: VisualState, start: int | None =None, e
 
         for self_i in range(i, 0, -1):
             query_i = self_i - 1
-            if chart_info.arr[query_i] < chart_info.arr[self_i]:
+            if chart_info.arr[query_i] <= chart_info.arr[self_i]:
                 chart_info.swapping = False
                 chart_info.s1 = None
                 chart_info.s0 = None
