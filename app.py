@@ -180,31 +180,77 @@ class InternalState:
     
 # END OF CLASSES
 
+def bubble_sort_iterative(chart_info: VisualState, start: int | None=None, end: int | None=None):
+
+    l = len(chart_info.arr)
+    fin = l - 1
+
+    chart_info.i1 = fin
+    chart_info.partitioning = True
+
+    for query_begin in range(start or 0, min(fin, end or fin)):
+        did_swap = False
+        chart_info.i0 = query_begin
+        for query in range(query_begin, fin - 1):
+            plus1 = query + 1
+
+            chart_info.pv = query
+            chart_info.s0 = query
+            chart_info.s1 = plus1
+            if chart_info.arr[query] > chart_info.arr[plus1]:
+                did_swap = True
+                chart_info.swapping = True
+                yield
+                chart_info.arr[query], chart_info.arr[plus1] = chart_info.arr[plus1], chart_info.arr[query]
+                chart_info.swapping = False
+            yield
+        if not did_swap:
+            chart_info.partitioning = False
+            return
+
+    chart_info.partitioning = False
+                
+        
+
+
 # SELECTION SORT
 def selection_sort_iterative(chart_info: VisualState, start: int | None=None, end: int | None=None):
 
-    final_index = len(chart_info.arr) - 1
+    chart_info.partitioning = True
 
-    chart_info.i1 = final_index
+    l = len(chart_info.arr)
+    final_index = l - 1
+
+    chart_info.i1 = l
 
     for i in range(start or 0, min(final_index, end or final_index)):
-
+        chart_info.swapping = False
         chart_info.pv = i
         chart_info.i0 = i
+        chart_info.s0 = i
 
         low_i = i
         low_v = chart_info.arr[i]
         # If the lower bound is greater than the upper bound, the loop just won't run, so we don't have to worry about it
-        for q in range(i + 1, final_index):
+        for q in range(i + 1, final_index - 1):
+            chart_info.s1 = q
             if chart_info.arr[q] < low_v:
                 low_v = chart_info.arr[q]
                 low_i = q
+                chart_info.pv = low_i
+            yield
+
+
+
         if low_i != i:
             chart_info.s0 = i
             chart_info.s1 = low_i
+            chart_info.swapping = True
             yield
             chart_info.arr[i], chart_info.arr[low_i] = chart_info.arr[low_i], chart_info.arr[i]
-            yield
+        chart_info.swapping = False
+        yield True
+    chart_info.partitioning = False
 # END OF SELECTION SORT
 
 # QUICK SORT
@@ -333,6 +379,247 @@ def quick_sort_iterative(chart_info: VisualState, session_info: InternalState, s
         iterations_finished += 1
     chart_info.partitioning = False
 
+# GRADIO HANDLERS
+
+
+# framework if you want to add your own sort
+'''
+fn(chart_info: VisualState, session_info: InternalState, steps: int):
+    this_id = session_info.new_lock()
+
+    generator = <generator>(chart_info, session_info, steps)
+        
+        try:
+            while session_info.is_lock_owner(this_id):
+                # job_finished is a bool that stores whether a job was completed on this yield
+                job_finished = next(generator)
+                if session_info.show_queries:
+                    if chart_info.swapping and chart_info.animate_swaps:
+                        yield chart_info.get_wait_multiplier_for_current_state()
+                    elif chart_info.swapping or session_info.show_comparisons:
+                        yield 1
+                elif job_finished:
+                    chart_info.partitioning = True
+                    yield 1
+                    chart_info.partitioning = False 
+                
+        except StopIteration:
+            pass
+        
+        session_info.close_lock(this_id)
+'''
+
+# bubblesort
+
+def step_bubblesort_gen(chart_info: VisualState, session_info: InternalState, steps: int):
+
+    lock = session_info.new_lock()
+
+    if session_info.step_sort_jobs:
+        current_job = session_info.step_sort_jobs.pop()
+        i0 = current_job.i0
+    else:
+        i0 = 0
+
+    generator = bubble_sort_iterative(chart_info, start=i0, end=i0 + steps)
+    
+    try:
+        while session_info.is_lock_owner(lock):
+            # job_finished is a bool that stores whether a job was completed on this yield
+            job_finished = next(generator)
+            if session_info.show_queries:
+                if chart_info.swapping and chart_info.animate_swaps:
+                    yield chart_info.get_wait_multiplier_for_current_state()
+                elif chart_info.swapping or session_info.show_comparisons:
+                    yield 1
+            elif job_finished:
+                chart_info.partitioning = True
+                yield 1
+                chart_info.partitioning = False 
+            
+    except StopIteration:
+        pass
+    if session_info.is_lock_owner(lock):
+        session_info.step_sort_jobs = [Job(i0 + steps, -1)]
+    # If this thread doesn't hold the latest call_id, exit to avoid interrupting a different UI update
+    session_info.close_lock(lock)
+
+def full_bubblesort_gen(chart_info: VisualState, session_info: InternalState):
+
+    lock = session_info.new_lock()
+
+    generator = bubble_sort_iterative(chart_info)
+    
+    try:
+        while session_info.is_lock_owner(lock):
+            # job_finished is a bool that stores whether a job was completed on this yield
+            job_finished = next(generator)
+            if session_info.show_queries:
+                if chart_info.swapping and chart_info.animate_swaps:
+                    yield chart_info.get_wait_multiplier_for_current_state()
+                elif chart_info.swapping or session_info.show_comparisons:
+                    yield 1
+            elif job_finished:
+                chart_info.partitioning = True
+                yield 1
+                chart_info.partitioning = False 
+            
+    except StopIteration:
+        pass
+
+    # If this thread doesn't hold the latest call_id, exit to avoid interrupting a different UI update
+    session_info.close_lock(lock)
+
+
+# Step-sort
+def step_quicksort_gen(
+    chart_info: VisualState,
+    session_info: InternalState,
+    steps: int,
+):
+
+    # Update the global call id, and is_active state
+    this_id = session_info.new_lock()
+
+    generator = quick_sort_iterative(chart_info, session_info, step_sort=True, iterations_allowed = steps)
+    
+    try:
+        while session_info.is_lock_owner(this_id):
+            # job_finished is a bool that stores whether a job was completed on this yield
+            job_finished = next(generator)
+            if session_info.show_queries:
+                if chart_info.swapping and chart_info.animate_swaps:
+                    yield chart_info.get_wait_multiplier_for_current_state()
+                elif chart_info.swapping or session_info.show_comparisons:
+                    yield 1
+            elif job_finished:
+                chart_info.partitioning = True
+                yield 1
+                chart_info.partitioning = False 
+            
+    except StopIteration:
+        pass
+    
+    # If this thread doesn't hold the latest call_id, exit to avoid interrupting a different UI update
+    session_info.close_lock(this_id)
+
+def full_quicksort_gen(chart_info: VisualState, session_info: InternalState):
+
+    # If pivot_alpha isn't 1, the sort function will unsort the array. This if statement will prevent that from happening
+    if not is_sorted(chart_info.arr):
+
+        this_id = session_info.new_lock()
+
+        generator = quick_sort_iterative(chart_info, session_info)
+
+        try:
+            while session_info.is_lock_owner(this_id):
+                # job_finished is a bool
+                job_finished = next(generator)
+                if session_info.show_queries:
+                    if chart_info.swapping and chart_info.animate_swaps:
+                        yield chart_info.get_wait_multiplier_for_current_state()
+                    elif chart_info.swapping or session_info.show_comparisons:
+                        yield 1
+                elif job_finished:
+                    chart_info.partitioning = True
+                    yield 1
+                    chart_info.partitioning = False 
+
+        except StopIteration:
+            pass
+
+        session_info.close_lock(this_id)
+        
+    else:
+        gr.Info("The array is fully sorted.")
+        pass
+
+def step_selectionsort_gen(chart_info: VisualState, session_info: InternalState, steps: int):
+    
+    # To follow the structure that session_info was built around, we use step_sort_jobs: list[Job] to store data for stepsort. We use a singular job in the list, and use that job's i0 as the point where the stepsort left off.
+    if session_info.step_sort_jobs:
+        current_job = session_info.step_sort_jobs.pop()
+        i0 = current_job.i0
+    else:
+        i0 = 0
+
+    lock = session_info.new_lock()
+
+    generator = selection_sort_iterative(chart_info, start=i0, end=i0 + steps)
+
+    try:
+        while session_info.is_lock_owner(lock):
+            job_finished = next(generator)
+            if session_info.show_queries:
+                if chart_info.swapping and chart_info.animate_swaps:
+                    yield chart_info.get_wait_multiplier_for_current_state()
+                elif chart_info.swapping or session_info.show_comparisons:
+                    yield 1
+            elif job_finished:
+                chart_info.partitioning = True
+                yield 1
+                chart_info.partitioning = False  
+    except StopIteration:
+        pass
+    
+    if session_info.is_lock_owner(lock):
+        session_info.step_sort_jobs = [Job(i0 + steps, -1)]
+
+    session_info.close_lock(lock)
+
+def full_selectionsort_gen(chart_info: VisualState, session_info: InternalState):
+
+    lock = session_info.new_lock()
+
+
+    generator = selection_sort_iterative(chart_info)
+
+
+    #  job_finished = next(quick_sort_generator)
+    #             if session_info.show_queries:
+    #                 if session_info.show_comparisons or chart_info.swapping:
+    #                     final_wait_interval = session_info.wait_interval * chart_info.get_wait_multiplier_for_current_state()
+    #                     chart_info.dt = final_wait_interval
+    #                     yield chart_info.to_embedded_json()
+    #                     await wait(final_wait_interval)
+
+    #             elif job_finished:
+    #                 chart_info.partitioning = True
+    #                 yield chart_info.to_embedded_json()
+    #                 chart_info.partitioning = False
+    #                 await wait(session_info.wait_interval)
+
+    try:
+        while session_info.is_lock_owner(lock):
+            job_finished = next(generator)
+            if session_info.show_queries:
+                if chart_info.swapping and chart_info.animate_swaps:
+                    yield chart_info.get_wait_multiplier_for_current_state()
+                elif chart_info.swapping or session_info.show_comparisons:
+                    yield 1
+            elif job_finished:
+                chart_info.partitioning = True
+                yield 1
+                chart_info.partitioning = False 
+    except StopIteration:
+        pass
+    
+    session_info.close_lock(lock)
+            
+
+
+# Dictionary of algorithms; index 0: stepsort: stepsort generator, index 1: fullsort generator
+
+sort_algorithms: dict[str, list[Any]] = {
+    # <str>: [<step sort generator>, <full sort generator>],
+    "Quick-Sort": [step_quicksort_gen, full_quicksort_gen],
+    "Selection-Sort": [step_selectionsort_gen, full_selectionsort_gen],
+    "Bubble-Sort": [step_bubblesort_gen, full_bubblesort_gen],
+}
+
+# END OF GRADIO HANDLERS
+
 # Main
 import gradio as gr
 
@@ -359,7 +646,7 @@ with gr.Blocks() as demo:
 
     html_chart = gr.HTML(value=f"<div></div>", elem_id=HTML_GRAPH_ELEMENT_ID)
 
-    algorithm_option = gr.Dropdown(choices=["quicksort","selectionsort"], value=session_info_state.value.algorithm)
+    algorithm_option = gr.Dropdown(choices=list(sort_algorithms.keys()), value=session_info_state.value.algorithm)
     # Visual update controls
     with gr.Row():
         show_queries_option = gr.Checkbox(label="Show Queries", value=session_info_state.value.show_queries) # Uses session info because py prompts visual updates, so js doesnt need this
@@ -407,160 +694,6 @@ with gr.Blocks() as demo:
     # The following code is meant to follow the structure of Event Handler -> Event Listener, which allows easy correspondence, especially for receiving input and interfacing output to the proper gradio components.
 
 
-    # Step-sort
-    async def step_quicksort_gen(
-        chart_info: VisualState,
-        session_info: InternalState,
-        steps_src: int,
-    ):
-
-        # Update the global call id, and is_active state
-        this_id = session_info.new_lock()
-
-        quick_sort_generator = quick_sort_iterative(chart_info, session_info, step_sort=True, iterations_allowed = round(steps_src))
-        
-        try:
-            while session_info.is_lock_owner(this_id):
-                # job_finished is a bool that stores whether a job was completed on this yield
-                job_finished = next(quick_sort_generator)
-                if session_info.show_queries:
-                    if session_info.show_comparisons or chart_info.swapping:
-                        final_wait_interval = session_info.wait_interval * chart_info.get_wait_multiplier_for_current_state()
-                        chart_info.dt = final_wait_interval
-                        yield chart_info.to_embedded_json()
-                        await wait(final_wait_interval)
-
-                elif job_finished:
-                    chart_info.partitioning = True
-                    yield chart_info.to_embedded_json()
-                    chart_info.partitioning = False
-                    await wait(session_info.wait_interval)
-                
-        except StopIteration:
-            pass
-        
-        # If this thread doesn't hold the latest call_id, exit to avoid interrupting a different UI update
-        session_info.close_lock(this_id)
-    
-    async def full_quicksort_gen(chart_info: VisualState, session_info: InternalState):
-
-        # If pivot_alpha isn't 1, the sort function will unsort the array. This if statement will prevent that from happening
-        if not is_sorted(chart_info.arr):
-
-            this_id = session_info.new_lock()
-
-            quick_sort_generator = quick_sort_iterative(chart_info, session_info)
-
-            try:
-                while session_info.is_lock_owner(this_id):
-                    # job_finished is a bool
-                    job_finished = next(quick_sort_generator)
-                    if session_info.show_queries:
-                        if session_info.show_comparisons or chart_info.swapping:
-                            final_wait_interval = session_info.wait_interval * chart_info.get_wait_multiplier_for_current_state()
-                            chart_info.dt = final_wait_interval
-                            yield chart_info.to_embedded_json()
-                            await wait(final_wait_interval)
-                        
-                    elif job_finished:
-                        chart_info.partitioning = True
-                        yield chart_info.to_embedded_json()
-                        chart_info.partitioning = False
-                        await wait(session_info.wait_interval)
-
-            except StopIteration:
-                pass
-
-            session_info.close_lock(this_id)
-            
-        else:
-            gr.Info("The array is fully sorted.")
-            pass
-        yield chart_info.to_embedded_json() # DO I NEED THIS?? LET'S FIND OUT. (Yes we need this, otherwise chart_info_state will be set to nil because it's listed as an output component and I guess at least one yield/return is required. But we cannot return a value on an async function)
-
-    async def step_selectionsort_gen(chart_info: VisualState, session_info: InternalState, steps: int):
-        
-        # To follow the structure that session_info was built around, we use step_sort_jobs: list[Job] to store data for stepsort. We use a singular job in the list, and use that job's i0 as the point where the stepsort left off.
-        if session_info.step_sort_jobs:
-            current_job = session_info.step_sort_jobs.pop()
-            i0 = current_job.i0
-        else:
-            i0 = 0
-
-        lock = session_info.new_lock()
-
-        generator = selection_sort_iterative(chart_info, start=i0, end=i0 + steps)
-
-        try:
-            while session_info.is_lock_owner(lock):
-                job_finished = next(generator)
-                if session_info.show_queries:
-                    final_wait_interval = session_info.wait_interval * chart_info.get_wait_multiplier_for_current_state()
-                    chart_info.dt = final_wait_interval
-                    yield chart_info.to_embedded_json()
-                    await wait(final_wait_interval)
-                elif job_finished:
-                    chart_info.partitioning = True
-                    yield chart_info.to_embedded_json()
-                    chart_info.partitioning = False
-                    await wait(session_info.wait_interval)     
-        except StopIteration:
-            pass
-        
-        if session_info.is_lock_owner(lock):
-            session_info.step_sort_jobs = [Job(i0 + steps, -1)]
-
-        session_info.close_lock(lock)
-    
-    async def full_selectionsort_gen(chart_info: VisualState, session_info: InternalState):
-
-        lock = session_info.new_lock()
-
-
-        generator = selection_sort_iterative(chart_info)
-
-
-        #  job_finished = next(quick_sort_generator)
-        #             if session_info.show_queries:
-        #                 if session_info.show_comparisons or chart_info.swapping:
-        #                     final_wait_interval = session_info.wait_interval * chart_info.get_wait_multiplier_for_current_state()
-        #                     chart_info.dt = final_wait_interval
-        #                     yield chart_info.to_embedded_json()
-        #                     await wait(final_wait_interval)
-
-        #             elif job_finished:
-        #                 chart_info.partitioning = True
-        #                 yield chart_info.to_embedded_json()
-        #                 chart_info.partitioning = False
-        #                 await wait(session_info.wait_interval)
-
-        try:
-            while session_info.is_lock_owner(lock):
-                job_finished = next(generator)
-                if session_info.show_queries:
-                    final_wait_interval = session_info.wait_interval * chart_info.get_wait_multiplier_for_current_state()
-                    chart_info.dt = final_wait_interval
-                    yield chart_info.to_embedded_json()
-                    await wait(final_wait_interval)
-                elif job_finished:
-                    chart_info.partitioning = True
-                    yield chart_info.to_embedded_json()
-                    chart_info.partitioning = False
-                    await wait(session_info.wait_interval)                
-        except StopIteration:
-            pass
-        
-        session_info.close_lock(lock)
-                
-
-    
-    # Dictionary of algorithms; index 0: stepsort: stepsort generator, index 1: fullsort generator
-    
-    sort_algorithms: dict[str, list[Any]] = {
-        "quicksort": [step_quicksort_gen, full_quicksort_gen],
-        "selectionsort": [step_selectionsort_gen, full_selectionsort_gen],
-    }
-
 
     
     # Both of these event handlers choose a sort function based on the current session_info.algorithm
@@ -574,9 +707,15 @@ with gr.Blocks() as demo:
 
         try:
             while True:
-                yield next(generator)
+                wait_multiplier = next(generator)
+
+                applied_wait_interval = session_info.wait_interval * wait_multiplier
+                chart_info.dt = applied_wait_interval
+                yield chart_info.to_embedded_json()
+                await wait(applied_wait_interval)
         except StopIteration:
             pass
+        yield chart_info.to_embedded_json() # (Assumption based on debugging) At least one yield is required, otherwise chart_info_state.value is set to null
 
     async def sort_button_on_click(
             chart_info: VisualState,
@@ -588,9 +727,15 @@ with gr.Blocks() as demo:
 
         try:
             while True:
-                yield next(generator)
+                wait_multiplier = next(generator)
+
+                applied_wait_interval = session_info.wait_interval * wait_multiplier
+                chart_info.dt = applied_wait_interval
+                yield chart_info.to_embedded_json()
+                await wait(applied_wait_interval)
         except StopIteration:
             pass
+        yield chart_info.to_embedded_json() # (Assumption based on debugging) At least one yield is required, otherwise chart_info_state.value is set to null
                 
     step_button.click(
         step_button_on_click,

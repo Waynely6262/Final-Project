@@ -35,7 +35,7 @@ const GREATER_ELEMENT_COLOR = new Color(255, 80, 80);
 const LESSER_ELEMENT_COLOR = new Color(80, 80, 255);
 const HIGHLIGHT_COLOR = new Color(255, 255, 255);
 const DEFAULT_ELEMENT_COLOR = Color.fromHex("#c4c8db");
-const PIVOT_ELEMENT_COLOR = new Color(255, 160, 80);
+const PIVOT_ELEMENT_COLOR = new Color(255,255,80);
 const HIGHLIGHT_STRENGTH = 0.4;
 
 const MAX_BORDER_RADIUS = 16;
@@ -235,11 +235,11 @@ function updateBars(data) {
         let color = null;
         
         if (data.partitioning) {
-            if (i >= data.i0 && i < data.i1) {
+            if (i === data.pv) {
+                color = PIVOT_ELEMENT_COLOR;
+            } else if (i >= data.i0 && i < data.i1) {
                 // within range
                 color = (pivotVal < arr[i]) ? GREATER_ELEMENT_COLOR : LESSER_ELEMENT_COLOR;
-            } else if (i === data.pv) {
-                color = PIVOT_ELEMENT_COLOR;
             }
         }
 
@@ -260,7 +260,7 @@ function updateBars(data) {
         
         if (!barElement) {
             barElement = document.createElement("div");
-            barContainer.appendChild(barElement);
+            barContainer.appendChild(barElement); // appending works because the for loop starts from index 0, so previous iterations validate that there are at least (i - 1) children        }
         }
         barElement.style.width = `${widthPerBar}px`;
         barElement.style.height = `${height}%`;
@@ -297,14 +297,27 @@ function animateSwap(index1, index2, duration) {
     originalBar1.style.visibility = "hidden";
     originalBar2.style.visibility = "hidden";
 
+
+    // Keep track of how many animations are being run on this bar; only the final animation's onComplete callback should set visibility=true,
+    // otherwise the element will be visible again too early
+    originalBar1.dataset.animationCount = Number(originalBar1.dataset.animationCount || 0) + 1;
+    originalBar2.dataset.animationCount = Number(originalBar2.dataset.animationCount || 0) + 1;
+    
+    
     // run animation
     animateSwapElements(bar1, bar2, duration, easeInOutExpo, () => {
         bar1.remove();
         bar2.remove();
         
-        // show original bars
-        originalBar1.style.visibility = "visible";
-        originalBar2.style.visibility = "visible";
+        // show original bars, only if this animation is the only active animator of the bar
+        // JS auto-interprets strings to numbers when performing arithmetic operations
+        originalBar1.dataset.animationCount = Number(originalBar1.dataset.animationCount || 0) - 1;
+        originalBar2.dataset.animationCount = Number(originalBar2.dataset.animationCount || 0) - 1;
+
+        // As long as math is mathing, the animationCount at this point should never be below 0
+        if (originalBar1.dataset.animationCount === "0") originalBar1.style.visibility = "visible";
+        if (originalBar2.dataset.animationCount === "0") originalBar2.style.visibility = "visible";
+        
     });
     
 }
