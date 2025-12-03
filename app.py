@@ -504,7 +504,7 @@ with gr.Blocks() as demo:
 
         # The sole purpsoe of reading show_comparisons in this event handler is to update the interactability of the animate_swaps option
         return gr.update(interactive=show_queries), gr.update(interactive=show_queries)
-    show_queries_option.change(show_queries_option_on_change, [session_info_state, show_queries_option, show_comparisons_option], [show_comparisons_option, animate_swaps_option])
+    show_queries_option.change(show_queries_option_on_change, [session_info_state, show_queries_option], [show_comparisons_option, animate_swaps_option])
 
     def show_comparisons_option_on_change(session_info: InternalState, show_comparisons: bool):
         session_info.show_comparisons = show_comparisons
