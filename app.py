@@ -130,6 +130,7 @@ class VisualState:
         self.dt = 0
 
     def get_wait_multiplier_for_current_state(self) -> float:
+        if not self.animate_swaps: return 1 # The purpose of the delay was just to make sure the animation doesn't happen too quickly if elements are further apart. If animatiosn aren't happening, just use a multiplier of 1
         if not (self.s0 and self.s1): return 1
         return log(2 + abs(self.s0 - self.s1), 2)
     
