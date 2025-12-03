@@ -592,7 +592,7 @@ with gr.Blocks() as demo:
 
     html_chart = gr.HTML(value=f"<div></div>", elem_id=HTML_GRAPH_ELEMENT_ID)
 
-    algorithm_option = gr.Dropdown(label="Sort Algorithm", choices=list(sort_algorithms.keys()), value=session_info_state.value.algorithm)
+    algorithm_option = gr.Dropdown(label="Sort Algorithm", choices=list(sort_algorithms.keys()), allow_custom_value=False, value=session_info_state.value.algorithm)
     # Visual update controls
     with gr.Row():
         show_queries_option = gr.Checkbox(label="Show Queries", value=session_info_state.value.show_queries) # Uses session info because py prompts visual updates, so js doesnt need this
