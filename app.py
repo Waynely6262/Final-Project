@@ -5,6 +5,10 @@ from asyncio import sleep as wait
 import json
 
 # UTILS
+
+def clamp(n: float, l: float, u: float):
+    return min(max(n, u), l)
+
 def lerp(v0: float, v1: float, a: float) -> float: # o(1) 
     return (1 - a) * v0 + (v1 * a)
 
@@ -314,16 +318,16 @@ def insertion_sort_iterative(chart_info: VisualState, start: int | None =None, e
 
     chart_info.i1 = l
 
-    end = end != None and end or (l - 1)
+    end = end != None and end or l
 
     free_index = start or 0
 
     chart_info.i0 = 0
 
-    for i in range(free_index + 1, min(l - 1, end)):
+    for i in range(free_index + 1, min(l, end)):
         chart_info.swapping = True
 
-        for self_i in range(i, -1, -1):
+        for self_i in range(i, 0, -1):
             query_i = self_i - 1
             if chart_info.arr[query_i] <= chart_info.arr[self_i]:
                 chart_info.swapping = False
@@ -713,7 +717,7 @@ with gr.Blocks() as demo:
             step_button = gr.Button("Step")
         with gr.Column():
             queue_data_option = gr.Checkbox(label="Queue Data (Setting to false will improve responsiveness but skip steps, disable this for large arrays)", value=chart_info_state.value.do_queue)
-            iteration_interval_slider = gr.Slider(label="Iteration Interval (seconds)", minimum=0.001, maximum=0.5, step=0.001, value=session_info_state.value.wait_interval)
+            iteration_interval_slider = gr.Slider(label="Iteration Interval (seconds)", minimum=0.016, maximum=0.5, step=0.001, value=session_info_state.value.wait_interval)
             stop_button = gr.Button("Stop Sorting (May not respond immediately for large arrays)")
             sort_button = gr.Button("Complete Sort")
 
@@ -883,9 +887,14 @@ with gr.Blocks() as demo:
     reset_button.click(reset_button_on_click, [chart_info_state, session_info_state, element_count_slider], [hidden_graph_data], )
     
 
-    def queue_data_option_on_change(chart_info: VisualState, v: bool):
+    def queue_data_option_on_change(chart_info: VisualState, v: bool, iter_interval: float):
         chart_info.do_queue = v
-    queue_data_option.change(queue_data_option_on_change, [chart_info_state, queue_data_option])
+
+        iteration_interval_lower_bound = v and 0.016 or 0.001
+
+        # 'clamp' util is defined; if the upper bound is also variable, change this to clamp() instead of max()
+        return gr.update(value=max(iter_interval, iteration_interval_lower_bound), minimum=iteration_interval_lower_bound)
+    queue_data_option.change(queue_data_option_on_change, [chart_info_state, queue_data_option, iteration_interval_slider], [iteration_interval_slider])
 
 
 

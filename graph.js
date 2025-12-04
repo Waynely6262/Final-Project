@@ -345,7 +345,7 @@ function swapDom(a, b) {
 }
 
 function animateSwap(index1, index2, duration) {
-    if (duration < MINIMUM_ANIMATION_DT) return; // for optimization, so we don't create and remove elements before a frame even renders
+    if (duration < MINIMUM_ANIMATION_DT) { swapDom(originalBar1, originalBar2); return; } // for optimization, so we don't create and remove elements before a frame even renders
     assert(graphElement, "Graph element not ready!");
     assert(barContainer, "Bar container not ready!");
     assert(graphOverlay, "Graph overlay not ready!");
