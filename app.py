@@ -121,6 +121,7 @@ class VisualState:
     dt: float = 0 # Expected time delay before proceeding
     swapping: bool = False # Whether a swap is occurring. The swap indexes will be coloured differently if (swapping)
     animate_swaps: bool = True # Whether to animate swaps
+    do_queue: bool = True # Whether to queue data sent to js or to drop other frames
     
     def __init__(self):
         self.arr = regenerate([])
@@ -203,7 +204,7 @@ class InternalState:
     call_id: int = START_CALL_ID
     pv_alpha: float = 1.0
 
-    wait_interval: float = 0.25
+    wait_interval: float = 0.1
 
     use_random_pv: bool = False
     show_queries: bool = True
@@ -313,16 +314,16 @@ def insertion_sort_iterative(chart_info: VisualState, start: int | None =None, e
 
     chart_info.i1 = l
 
-    end = end != None and end or l
+    end = end != None and end or (l - 1)
 
     free_index = start or 0
 
     chart_info.i0 = 0
 
-    for i in range(free_index + 1, min(l, end)):
+    for i in range(free_index + 1, min(l - 1, end)):
         chart_info.swapping = True
 
-        for self_i in range(i, 0, -1):
+        for self_i in range(i, -1, -1):
             query_i = self_i - 1
             if chart_info.arr[query_i] <= chart_info.arr[self_i]:
                 chart_info.swapping = False
@@ -711,6 +712,7 @@ with gr.Blocks() as demo:
             iterations_per_step_slider = gr.Slider(label="Iterations per Step", minimum=1, maximum=10, value=1, step=1)
             step_button = gr.Button("Step")
         with gr.Column():
+            queue_data_option = gr.Checkbox(label="Queue Data (Setting to false will improve responsiveness but skip steps, disable this for large arrays)", value=chart_info_state.value.do_queue)
             iteration_interval_slider = gr.Slider(label="Iteration Interval (seconds)", minimum=0.001, maximum=0.5, step=0.001, value=session_info_state.value.wait_interval)
             stop_button = gr.Button("Stop Sorting (May not respond immediately for large arrays)")
             sort_button = gr.Button("Complete Sort")
@@ -879,6 +881,13 @@ with gr.Blocks() as demo:
         # Update states
         return chart_info.to_embedded_json()
     reset_button.click(reset_button_on_click, [chart_info_state, session_info_state, element_count_slider], [hidden_graph_data], )
+    
+
+    def queue_data_option_on_change(chart_info: VisualState, v: bool):
+        chart_info.do_queue = v
+    queue_data_option.change(queue_data_option_on_change, [chart_info_state, queue_data_option])
+
+
 
     # Since this doesn't affect the number of elements in the list, it won't cause the program to fail. I will let this be callable mid-sort, just for fun
     def shuffle_button_on_click(chart_info: VisualState, shuffle_strength: float):

@@ -33,6 +33,7 @@ class Queue {
 
         // removes the head, setting the linked element as the new head
         if (this.length == 0) {
+            console.log("Attempted to remove from empty queue");
             return null;
         }
         this.length -= 1;
@@ -44,6 +45,12 @@ class Queue {
             this.tail = null
         }
         return unlinked.content;
+    }
+
+    clear() {
+        this.head = null;
+        this.tail = null;
+        this.length = 0;
     }
 }
 
@@ -79,6 +86,8 @@ class Color {
         return `#${r}${g}${b}`;
     }
 }
+
+const MINIMUM_ANIMATION_DT = 0.03
 
 const SWAPPING_ELEMENT_COLOR = new Color(80, 255, 80);
 const GREATER_ELEMENT_COLOR = new Color(255, 80, 80);
@@ -336,6 +345,7 @@ function swapDom(a, b) {
 }
 
 function animateSwap(index1, index2, duration) {
+    if (duration < MINIMUM_ANIMATION_DT) return; // for optimization, so we don't create and remove elements before a frame even renders
     assert(graphElement, "Graph element not ready!");
     assert(barContainer, "Bar container not ready!");
     assert(graphOverlay, "Graph overlay not ready!");
@@ -425,6 +435,10 @@ function onNewData() {
     
     framesWaiting.add(data);
     if (framesWaiting.length > 1) {
+        if (!data.do_queue) {
+            framesWaiting.clear(); // empty the queue
+            framesWaiting.add(data); // add the only element waiting
+        }
         return;
     }
 
