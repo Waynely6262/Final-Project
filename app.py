@@ -22,7 +22,7 @@ def regenerate(arr: list[int], elements: int | None = 50): # o(n) time
     if elements == None: elements = 50
     arr.clear()
     for _ in range(elements):
-        arr.append(rand.randint(1,1000))
+        arr.append(rand.randint(10,1000))
     return arr
 
 # Fisher-Yates shuffle, with a shuffle_strength variable representing the percentage likelihood that an element will be swapped
@@ -316,18 +316,17 @@ def insertion_sort_iterative(chart_info: VisualState, start: int | None =None, e
 
     l = len(chart_info.arr)
 
-    chart_info.i1 = l
-
     end = end != None and end or l
 
     free_index = start or 0
 
     chart_info.i0 = 0
 
-    for i in range(free_index + 1, min(l, end)):
+    for i in range(free_index, min(l - 1, end)):
         chart_info.swapping = True
+        chart_info.i1 = i + 1
 
-        for self_i in range(i, 0, -1):
+        for self_i in range(i + 1, 0, -1):
             query_i = self_i - 1
             if chart_info.arr[query_i] <= chart_info.arr[self_i]:
                 chart_info.swapping = False
@@ -337,12 +336,13 @@ def insertion_sort_iterative(chart_info: VisualState, start: int | None =None, e
                 yield True
                 break
             # Subject's index is always going to be q + 1 because this loop will keep moving subject
-            chart_info.i1 = i
             chart_info.s0 = query_i
             chart_info.s1 = self_i
             chart_info.pv = self_i
             yield
             chart_info.arr[query_i], chart_info.arr[self_i] = chart_info.arr[self_i], chart_info.arr[query_i]
+        else:
+            chart_info.swapping = False
 
 
                 
@@ -538,7 +538,9 @@ def step_bubblesort_gen(chart_info: VisualState, session_info: InternalState, st
             yield next(generator)
             
     except StopIteration:
-        session_info.step_sort_jobs = [Job(i0 + steps, -1)]
+        next_index = i0 + steps
+        if len(chart_info.arr) > next_index:
+            session_info.step_sort_jobs = [Job(next_index, -1)]
         pass
 
 def full_bubblesort_gen(chart_info: VisualState, session_info: InternalState):
@@ -570,7 +572,9 @@ def step_insertionsort_gen(chart_info: VisualState, session_info: InternalState,
             yield next(generator)
             
     except StopIteration:
-        session_info.step_sort_jobs = [Job(i0 + steps, -1)]
+        next_index = i0 + steps
+        if len(chart_info.arr) > next_index:
+            session_info.step_sort_jobs = [Job(next_index, -1)]
         pass
 
 def full_insertionsort_gen(chart_info: VisualState, session_info: InternalState):
@@ -633,7 +637,10 @@ def step_selectionsort_gen(chart_info: VisualState, session_info: InternalState,
         while True:
             yield next(generator)
     except StopIteration:
-        session_info.step_sort_jobs = [Job(i0 + steps, -1)]
+        
+        next_index = i0 + steps
+        if len(chart_info.arr) > next_index:
+            session_info.step_sort_jobs = [Job(next_index, -1)]
         pass
 
 def full_selectionsort_gen(chart_info: VisualState, session_info: InternalState):
