@@ -785,17 +785,6 @@ with gr.Blocks() as demo:
                     yield chart_info.to_embedded_json()
                     chart_info.partitioning = False
                     await wait(session_info.wait_interval)
-
-                # try:
-                #     while session_info.is_lock_owner(lock):
-                #         # job_finished is a bool that stores whether a job was completed on this yield
-                #         job_finished = next(generator)
-                #         
-                        
-                # except StopIteration:
-                #     pass
-
-                yield chart_info.to_embedded_json()
         except StopIteration:
             pass
             
