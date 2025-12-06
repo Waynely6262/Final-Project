@@ -59,7 +59,6 @@ MAXIMUM_ELEMENTS_FOR_SHUFFLE_ANIMATION = 32
 
 # CLASSES
 MAX_ELEMENTS = TOTAL_WIDTH_PX
-bar_width_memo = {} # this can be used across all instances of the class, because they will all return the same value 
 
 class VisualState:
     arr: list[int]
