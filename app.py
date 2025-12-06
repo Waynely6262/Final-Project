@@ -40,8 +40,6 @@ class Job:
     def __init__(self, start: int, end: int):
         self.i0 = start
         self.i1 = end
-    def get_pivot_index(self, alpha: float=1) -> int:
-        return floor(lerp(self.i0, self.i1, alpha))
 # END OF UTILITY CLASSES
 
 
