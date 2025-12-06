@@ -42,68 +42,18 @@ class Job:
         self.i1 = end
     def get_pivot_index(self, alpha: float=1) -> int:
         return floor(lerp(self.i0, self.i1, alpha))
-
-
-# Color class
-BASE_16 = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f']
-class Color:
-    r: int
-    g: int
-    b: int
-
-    def __init__(self, r: int, g: int, b: int):
-        self.r = r
-        self.g = g
-        self.b = b
-
-    @classmethod
-    def from_hex(cls, src: str):
-        src = src.lstrip("#")
-        
-        r = int(src[0:2], 16)
-        g = int(src[2:4], 16)
-        b = int(src[4:6], 16)
-        return Color(r, g, b)
-
-    def _to_hex(self, n: int) -> str:
-        # Convert 0–255 to a 2-digit hex string.
-        high = n // 16
-        low = n % 16
-        return BASE_16[high] + BASE_16[low]
-
-    def get_hex(self) -> str:
-        # Return a hex-code in the form of #ffffff
-        return f"#{self._to_hex(self.r)}{self._to_hex(self.g)}{self._to_hex(self.b)}"
-
-    def lerp(self, other: "Color", alpha: float) -> "Color":
-        #,Return a new color interpolated between self and other
-        r = int(lerp(self.r, other.r, alpha))
-        g = int(lerp(self.g, other.g, alpha))
-        b = int(lerp(self.b, other.b, alpha))
-        return Color(r, g, b)
 # END OF UTILITY CLASSES
 
 
 # CONFIG
-
 # Make sure these matches the identifiers used in graph.js
-
 HTML_DATA_HOLDER_ELEMENT_ID = "graph-data" # HTML element ID where the graph data JSON is stored
 HTML_GRAPH_ELEMENT_ID = "graph" # HTML element ID where the graph will be rendered
 
-SWAPPING_ELEMENT_COLOR = Color(80,255,80)
-GREATER_ELEMENT_COLOR = Color(255,80,80)
-LESSER_ELEMENT_COLOR = Color(80,80,255)
-HIGHLIGHT_COLOR = Color(255,255,255)
-DEFAULT_ELEMENT_COLOR = Color.from_hex("#c4c8db") # grey
-PIVOT_ELEMENT_COLOR = Color(255,160,80)
-HIGHLIGHT_STRENGTH = 0.75
-MAX_BORDER_RADIUS = 16
 # Chart Size
 TOTAL_HEIGHT_PX = 200
 TOTAL_WIDTH_PX = 2000
 # Other
-
 MAXIMUM_ELEMENTS_FOR_SHUFFLE_ANIMATION = 32
 
 
