@@ -915,10 +915,4 @@ with gr.Blocks() as demo:
 
     # end of save point
 
-demo.launch(share=True, head=f"<script defer>{graph_builder_src_js}</script>", 
-            
-css = """
-#warning {background-color: #FFCCCB}
-.feedback textarea {font-size: 24px !important}
-"""
-)
+demo.launch(share=True, head=f"<script defer>{graph_builder_src_js}</script>")
