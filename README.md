@@ -114,6 +114,7 @@ Various inputs were tested, which helped to identify errors.
 
 
 ## Steps to Run
+On smaller screens, reduce the number of elements with the "Total Elements" slider, and press "Regenerate Elements" until the graph is visible. 
 
 ### Default
 Default settings allow the user to run the sort immediately:
@@ -122,7 +123,6 @@ Default settings allow the user to run the sort immediately:
 
 ### Tutorial
 
-On smaller screens, reduce the number of elements with the "Total Elements" slider, and press "Regenerate Elements" until the graph is visible. 
 
 #### Quick Demo
 - Press the "Complete Sort" button at the bottom right of the page.
