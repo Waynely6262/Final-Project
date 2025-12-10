@@ -109,6 +109,12 @@ Various inputs were tested, which helped to identify errors.
 - JS: Properly cloning and placing the bars from the original chart div to the overlay div for animation (approximate hours wasted: 4)
 - JS: Animation of bars, where the original bar would flash for a quick second on huggingface, but not in local environment (approximate hours wasted: 3)
 
+#### Screenshots
+
+##### Testing Error Feedback
+<img width="1376" height="367" alt="testing error feedback handlers" src="https://github.com/user-attachments/assets/9aab7326-2cca-4dd1-859a-b54d312a4fcf" />
+Changes inspired by this test: 
+- Add `str(e)` to graph.js generalized exception message
 
 
 ## Steps to Run
@@ -197,3 +203,5 @@ JavaScript Animation Chat: https://chatgpt.com/share/6934d036-b0fc-8012-bba6-f47
 - AI Level 3 was used to generate example code for concepts (inspired by but not used in the project).
 - AI Level 4 was used to translate the "Color" class and some constants from Python into JavaScript.
 - AI Level 4 was used to generate a DOM cloning function "copyElementToOverlay".
+
+JustForFun: Test me in-person on how well I know the program's explicitly written logic (imported libraries don't count)!

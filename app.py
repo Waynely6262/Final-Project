@@ -698,7 +698,7 @@ with gr.Blocks() as demo:
             gr.Markdown(readme_src)
     except Exception as e:
         print(f"Failed to load README instructions {str(e)}") 
-        gr.Markdown("Failed to load README instructions.")
+        gr.Markdown(f"Failed to load README instructions {str(e)}")
 
 
     # END OF INITIALIZE ELEMENTS
