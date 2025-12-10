@@ -1,3 +1,4 @@
+import gradio as gr
 from typing import Any, AsyncGenerator, Generator, Callable
 from math import floor, log
 import random as rand
@@ -6,19 +7,25 @@ import json
 
 # UTILS
 
-def clamp(n: float, l: float, u: float):
+# Ensures number n is between number l and number u
+def clamp(n: float, l: float, u: float): # o(1) time
+    if l > u:
+        u,l=l,u
     return min(max(n, u), l)
 
-def lerp(v0: float, v1: float, a: float) -> float: # o(1) 
+# Principle equation for linear interpolation (and v0 + (v1-v0)*a, but I like this one because it feels cleaner) 
+def lerp(v0: float, v1: float, a: float) -> float: # o(1) time
     return (1 - a) * v0 + (v1 * a)
 
+# Checks if a list is sorted
 def is_sorted(arr: list[int]): # o(n) time
     for i in range(1, len(arr)):
         if arr[i - 1] > arr[i]:
             return False
     return True
 
-def regenerate(arr: list[int], elements: int | None = 50): # o(n) time
+# Generates integers in a way specifically desgined for this program
+def regenerate(arr: list[int], elements: int | None = 50): # o(n) time? (Not sure how long arr.clear() directly takes)
     if elements == None: elements = 50
     arr.clear()
     for _ in range(elements):
@@ -35,7 +42,7 @@ def shuffle(arr: list[int], shuffle_strength: float=1.0): # o(n) time worst case
 
 # END OF UTILS
 
-# UTILITY CLASSES
+# UTILITY CLASSES (This used to be a slight bit longer) (Also feel free to optimize by removing the Job class entirely as it only serves as a start and end point, which can be represented by a tuple)
 class Job:
     def __init__(self, start: int, end: int):
         self.i0 = start
@@ -43,22 +50,21 @@ class Job:
 # END OF UTILITY CLASSES
 
 
-# CONFIG
+# CONFIG (Optionally, create a config file so values are automatically shared by both sides)
 # Make sure these matches the identifiers used in graph.js
 HTML_DATA_HOLDER_ELEMENT_ID = "graph-data" # HTML element ID where the graph data JSON is stored
 HTML_GRAPH_ELEMENT_ID = "graph" # HTML element ID where the graph will be rendered
 
 # Chart Size
-TOTAL_HEIGHT_PX = 200
-TOTAL_WIDTH_PX = 2000
+TOTAL_HEIGHT_PX = 200 # SYNC THIS WITH JS (OR CREATE A CONFIG FILE)
+TOTAL_WIDTH_PX = 2000 # SYNC THIS WITH JS (OR CREATE A CONFIG FILE)
 # Other
-MAXIMUM_ELEMENTS_FOR_SHUFFLE_ANIMATION = 32
-
-
+MAXIMUM_ELEMENTS_FOR_SHUFFLE_ANIMATION = 32 
 # END OF CONFIG
+MAX_ELEMENTS = TOTAL_WIDTH_PX
+
 
 # CLASSES
-MAX_ELEMENTS = TOTAL_WIDTH_PX
 
 class VisualState:
     arr: list[int]
@@ -466,7 +472,7 @@ def quick_sort_iterative(chart_info: VisualState, session_info: InternalState, s
         iterations_finished += 1
     chart_info.partitioning = False
 
-# GRADIO HANDLERS
+# SORT GENERATORS (To assist in interfacing with Gradio components)
 
 # bubblesort
 
@@ -601,7 +607,7 @@ def full_selectionsort_gen(chart_info: VisualState, session_info: InternalState)
         pass
 
 
-# Dictionary of algorithms; index 0: stepsort: stepsort generator, index 1: fullsort generator
+# Dictionary of algorithms; <str> indexes <tuple> where: index 0: stepsort: stepsort generator, index 1: fullsort generator
 
 sort_algorithms: dict[str, list[Any]] = {
     # <str>: [<step sort generator>, <full sort generator>],
@@ -611,14 +617,19 @@ sort_algorithms: dict[str, list[Any]] = {
     "Insertion-Sort": [step_insertionsort_gen, full_insertionsort_gen],
 }
 
-# END OF GRADIO HANDLERS
+# END OF SORT GENERATORS
 
 # Main
-import gradio as gr
 
-with open("graph.js", "r") as js_file:
-   graph_builder_src_js = js_file.read()
-
+# Requires "graph,js"
+try:
+    with open("graph.js", "r") as js_file:
+       graph_builder_src_js = js_file.read()
+        # Load js source code
+except FileNotFoundException:
+    exit("Fatal error: could not finish build because required js logic \"graph.js\" is missing; Is it in the same directory as 'app.py'?")
+except Exception as e:
+    exit("Fatal error: could not finish build (Attempting to read \"graph.js\")")
 
 with gr.Blocks() as demo:
 
@@ -633,13 +644,17 @@ with gr.Blocks() as demo:
     # An assumption is made that type(gr.State()) objects pass their 'value' attribute whenever the gr.State object is used as input, meaning that references are maintained and session_info never needs to be used as output.
     session_info_state = gr.State(value=InternalState()) # luau typecheck: gr.State & {value: InternalState}
 
-    gr.Markdown("# Quicksort: by Wayne")
-    
+    gr.Markdown("# Sort Visualizer: by Wayne Bai (SID: 20553851)")
+
+    # stores hidden data
     hidden_graph_data = gr.HTML(value=chart_info_state.value.to_embedded_json())
 
+    # Initialize as empty because this element is updated on the client-side
     html_chart = gr.HTML(value=f"<div></div>", elem_id=HTML_GRAPH_ELEMENT_ID)
 
+    # Which sorting algorithm to use
     algorithm_option = gr.Radio(label="Sort Algorithm", choices=list(sort_algorithms.keys()), value=session_info_state.value.algorithm)
+    
     # Visual update controls
     with gr.Row():
         show_queries_option = gr.Checkbox(label="Show Queries", value=session_info_state.value.show_queries) # Uses session info because py prompts visual updates, so js doesnt need this
@@ -675,14 +690,15 @@ with gr.Blocks() as demo:
             stop_button = gr.Button("Stop Sorting (May not respond immediately for large arrays)")
             sort_button = gr.Button("Complete Sort")
 
+    # Load the README because why not
+    try:
 
-    with open("README.md", "r") as instructions_file:
-
-        try:
+        with open("README.md", "r") as instructions_file:
             readme_src = instructions_file.read()
             gr.Markdown(readme_src)
-        except Exception as e:
-            gr.Markdown("Failed to load README instructions.")
+    except Exception as e:
+        print(f`Failed to load README instructions {str(e)}`) 
+        gr.Markdown("Failed to load README instructions.")
 
 
     # END OF INITIALIZE ELEMENTS
