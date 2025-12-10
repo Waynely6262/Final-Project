@@ -192,6 +192,7 @@ Explain requirements.txt: https://chatgpt.com/share/6934d011-c0d4-8012-82d1-a262
 JavaScript Animation Chat: https://chatgpt.com/share/6934d036-b0fc-8012-bba6-f4767c3a0d7d
 
 - AI Level 1 was used to explain the Gradio API
+- AI Level 1 was used to explain basic asynchoronous tasking in PY
 - AI Level 2 was used to attempt to debug code (unfortunately, usually with little to no success)
 - AI Level 3 was used to translate my knowledge in Luau (a scripting language) into JavaScript equivalents (such as requestAnimationFrame(lambda) & game["Run Service"].RenderSteppd.Once(self, lambda: (dt: number) -> ()).
 - AI Level 3 was used to generate example code for concepts (inspired by but not used in the project).
