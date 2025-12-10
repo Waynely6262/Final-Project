@@ -113,9 +113,15 @@ Various inputs were tested, which helped to identify errors.
 
 ##### Testing Error Feedback
 <img width="1376" height="367" alt="testing error feedback handlers" src="https://github.com/user-attachments/assets/9aab7326-2cca-4dd1-859a-b54d312a4fcf" />
-Changes inspired by this test: 
+Issue:
+- The defaulting except statement ("except Exception") would not provide details of the exception if triggered
+Changes inspired: 
 - Add `str(e)` to graph.js generalized exception message
 
+##### API Page View
+<img width="1225" height="839" alt="image" src="https://github.com/user-attachments/assets/334b2bf8-6da4-479b-aea8-0248867bd3e9" />
+Changes inspired:
+- Add headers to the subsections
 
 ## Steps to Run
 On smaller screens, reduce the number of elements with the "Total Elements" slider, and press "Regenerate Elements" until the graph is visible. 
@@ -164,23 +170,28 @@ End of tutorial, have fun playing around!
 
 ### API (sub-sections sorted by importance)
 
+#### Algorithm
 - The "Sort Algorithm" Radio allows the user to choose a sorting algorithm to run.
 
+#### Sorting
 - "Complete Sort" will sort the entire array.
 - "Step" will run a part of the sorting algorithm. Use the "Iterations per Step" slider to modify how many steps are performed.
 - "Iterations per Step" controls how many steps are run when the "Step" button is pressed.
 - "Stop Sorting" will stop any active sorting activities. This may not respond immediately because the client-side could still be receiving and/or processing outdated information
 - "Queue Data" is an optimization option. When set to off, the iteration interval can be lowered further than 60 Hz, to 1000 Hz. Keep in mind that if outdated data is dropped, so animation will not run properly.
-  
+
+#### View
 - "Show Queries" tells the program whether to show swaps and comparisons or not. This feature allows the user to quickly see the partitions made by the quick-sort algorithm.
 - "Show Comparisons" tells the program to render the chart with highlighted elements every time the program compares two elements.
 - "Animate Swaps" tells the program whether or not to animate swaps. If off, a green highlight is used to indicate which elements are swapped instead.
-  
+
+#### Preparation
 - "Regenerate Elements" will regenerate the array. To change the number of elements in the array, use the "Total Elements" slider.
 - "Total Elements" slider lets the "Regenerate Elements" button know how many elements to include in the new array.
 - "Shuffle Elements" will shuffle elements in the array. This can be done while the array is shuffling, but the algorithm will simply continue instead of accounting for it. To modify how strongly the the array is shuffled, use the "Shuffle Strength" slider. 0 means none of the elements are shuffled. 1 means all the elements are shuffled.
 - "Shuffle Strength" slider controls the chance of an individual element being shuffled, with 0 being 0% and 1.0 being 100%.
 - "Create Save Point" will allow the user to store a snapshot of the array, which can be loaded using the "Load Save Point" button.
+- "Load Save Point" will be available after "Create Save Point" is used. This button loads a saved array.
 
 - (QUICKSORT ONLY) "Use Random Pivot" will allow the quick-sort algorithm to choose a random pivot instead of a set pivot.
 - (QUICKSORT ONLY) "Custom Pivot Point" will tell the program where to choose a pivot.
