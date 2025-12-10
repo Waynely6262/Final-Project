@@ -1,3 +1,13 @@
+---
+title: Sort Visualizer - Waynely
+emoji: 🔥
+colorFrom: indigo
+colorTo: gray
+sdk: gradio
+sdk_version: "6.0.0"
+app_file: app.py
+pinned: false
+---
 # CISC 121 Final Project
 
 ## Demonstration
@@ -244,5 +254,4 @@ ChatGPT-Auto was the only AI tool used
 
 #### Just For Fun
 Test me in-person on how well I know the program's explicitly written logic (imported libraries don't count)!
-
 
