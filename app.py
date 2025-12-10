@@ -626,7 +626,7 @@ try:
     with open("graph.js", "r") as js_file:
        graph_builder_src_js = js_file.read()
         # Load js source code
-except FileNotFoundException:
+except FileNotFoundError:
     exit("Fatal error: could not finish build because required js logic \"graph.js\" is missing; Is it in the same directory as 'app.py'?")
 except Exception as e:
     exit("Fatal error: could not finish build (Attempting to read \"graph.js\")")
@@ -697,7 +697,7 @@ with gr.Blocks() as demo:
             readme_src = instructions_file.read()
             gr.Markdown(readme_src)
     except Exception as e:
-        print(f`Failed to load README instructions {str(e)}`) 
+        print(f"Failed to load README instructions {str(e)}") 
         gr.Markdown("Failed to load README instructions.")
 
 
