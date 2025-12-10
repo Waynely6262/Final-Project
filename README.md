@@ -113,13 +113,15 @@ Various inputs were tested, which helped to identify errors.
 
 ##### Testing Error Feedback
 <img width="1376" height="367" alt="testing error feedback handlers" src="https://github.com/user-attachments/assets/9aab7326-2cca-4dd1-859a-b54d312a4fcf" />
-Issue:
-- The defaulting except statement ("except Exception") would not provide details of the exception if triggered
+Issue: The defaulting except statement ("except Exception") would not provide details of the exception if triggered
+  
 Changes inspired: 
-- Add `str(e)` to graph.js generalized exception message
+- Add "str(e)" to graph.js generalized exception message
 
 ##### API Page View
-<img width="1225" height="839" alt="image" src="https://github.com/user-attachments/assets/334b2bf8-6da4-479b-aea8-0248867bd3e9" />
+<img width="1225" height="839" alt="unclear splitting of different types of elements" src="https://github.com/user-attachments/assets/334b2bf8-6da4-479b-aea8-0248867bd3e9" />
+Issue: unclear splitting of different types of elements
+
 Changes inspired:
 - Add headers to the subsections
 
