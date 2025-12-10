@@ -1,6 +1,8 @@
 # CISC 121 Final Project
 
 ## Demonstration
+Unfortunately due to lack of time, only a screenshot is available.
+<img width="2457" height="1309" alt="image" src="https://github.com/user-attachments/assets/8bf1a381-34e5-451b-9f28-f3c3dc64ddeb" />
 
 ### Step 1 - Choose an Algorithm & Justification
 For this project, I chose quick-sort. It is the only algorithm that wasn't covered in high school. This algorithm sorts elements in an interesting way, which makes it a good reason to create a visualization for it. 
@@ -34,6 +36,10 @@ Every time the array is updated, the visualization should update based on the in
 - Because the browser-end has to receive data, instead of constructing the HTML server-side, it should be constructed on the client-side using raw chart data, which is a lot smaller in size. This will avoid unnecessary data usage.
 
 #### Algorithm Design
+
+For the flowchart, only view good-copy for PYTHON
+**Flowchart:** https://app.diagrams.net/#G1P_44fzNCCS08O1zV5GIMQivl4iAyn-WQ#%7B%22pageId%22%3A%224BXZXrdRpVA-gQ8RD3NR%22%7D
+
 
 User input uses the following datatypes:
 - Integer
@@ -202,10 +208,20 @@ End of tutorial, have fun playing around!
 - (QUICKSORT ONLY) "Use Random Pivot" will allow the quick-sort algorithm to choose a random pivot instead of a set pivot.
 - (QUICKSORT ONLY) "Custom Pivot Point" will tell the program where to choose a pivot.
 
-## AI DISCLAIMER
+## HUGGING FACE
+
+https://huggingface.co/spaces/Waynely6262/sort-visualizer
+
+## AUTHOR & ACKNOWLEDGEMENT
+
+### HUMAN AUTHORS
+Built by Wayne Bai (QU SID: 20553851)
+
+### AI DISCLAIMER
+
 ChatGPT-Auto was the only AI tool used
 
-### Links
+#### Links
 - LinkedList implementation debug: https://chatgpt.com/share/6934cd4a-0100-8012-8a0b-a04b8b82435a
 
 - General Chat: https://chatgpt.com/share/6934cfec-2600-8012-8ae0-cea945dd195d|
@@ -216,7 +232,7 @@ ChatGPT-Auto was the only AI tool used
 
 - JavaScript Animation Chat: https://chatgpt.com/share/6934d036-b0fc-8012-bba6-f4767c3a0d7d
 
-### Breakdown
+#### Breakdown
 - AI Level 1 was used to explain the Gradio API
 - AI Level 1 was used to explain basic asynchronous tasking in PY
 - AI Level 2 was used to attempt to debug code (unfortunately, usually with little to no success)
@@ -226,5 +242,7 @@ ChatGPT-Auto was the only AI tool used
 - AI Level 4 was used to generate a DOM cloning function "copyElementToOverlay".
 - AI Level 4 was used to regenerate this README file the exact way it was before, except "\#\#\#\#\# Header" occurrences are replaced with "\*\*Header\*\*"
 
-### Just For Fun
+#### Just For Fun
 Test me in-person on how well I know the program's explicitly written logic (imported libraries don't count)!
+
+
