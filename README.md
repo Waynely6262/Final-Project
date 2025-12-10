@@ -201,14 +201,20 @@ End of tutorial, have fun playing around!
 
 
 ## AI DISCLAIMER
-ChatGPT-Auto was the only AI tool used:
+ChatGPT-Auto was the only AI tool used
 
-LinkedList implementation debug: https://chatgpt.com/share/6934cd4a-0100-8012-8a0b-a04b8b82435a
-General Chat: https://chatgpt.com/share/6934cfec-2600-8012-8ae0-cea945dd195d|
-Gradio Explanation & Example Code: https://chatgpt.com/share/6934d0ad-f1bc-8012-9d58-175090792066
-Explain requirements.txt: https://chatgpt.com/share/6934d011-c0d4-8012-82d1-a2621e6f2b46
-JavaScript Animation Chat: https://chatgpt.com/share/6934d036-b0fc-8012-bba6-f4767c3a0d7d
+### Links
+- LinkedList implementation debug: https://chatgpt.com/share/6934cd4a-0100-8012-8a0b-a04b8b82435a
 
+- General Chat: https://chatgpt.com/share/6934cfec-2600-8012-8ae0-cea945dd195d|
+
+- Gradio Explanation & Example Code: https://chatgpt.com/share/6934d0ad-f1bc-8012-9d58-175090792066
+
+- Explain requirements.txt: https://chatgpt.com/share/6934d011-c0d4-8012-82d1-a2621e6f2b46
+
+- JavaScript Animation Chat: https://chatgpt.com/share/6934d036-b0fc-8012-bba6-f4767c3a0d7d
+
+### Breakdown
 - AI Level 1 was used to explain the Gradio API
 - AI Level 1 was used to explain basic asynchoronous tasking in PY
 - AI Level 2 was used to attempt to debug code (unfortunately, usually with little to no success)
@@ -217,4 +223,5 @@ JavaScript Animation Chat: https://chatgpt.com/share/6934d036-b0fc-8012-bba6-f47
 - AI Level 4 was used to translate the "Color" class and some constants from Python into JavaScript.
 - AI Level 4 was used to generate a DOM cloning function "copyElementToOverlay".
 
-JustForFun: Test me in-person on how well I know the program's explicitly written logic (imported libraries don't count)!
+### Just For Fun
+Test me in-person on how well I know the program's explicitly written logic (imported libraries don't count)!
