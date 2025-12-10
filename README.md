@@ -179,6 +179,7 @@ End of tutorial, have fun playing around!
 #### Algorithm
 - The "Sort Algorithm" Radio allows the user to choose a sorting algorithm to run.
 
+
 #### Sorting
 - "Complete Sort" will sort the entire array.
 - "Step" will run a part of the sorting algorithm. Use the "Iterations per Step" slider to modify how many steps are performed.
