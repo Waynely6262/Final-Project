@@ -2,8 +2,6 @@
 
 ## Demonstration
 
-
-
 ### Step 1 - Choose an Algorithm & Justification
 For this project, I chose quick-sort. It is the only algorithm that wasn't covered in high school. This algorithm sorts elements in an interesting way, which makes it a good reason to create a visualization for it. 
 
@@ -158,7 +156,8 @@ Default settings allow the user to run the sort immediately:
 - Experiment with "Step" and "Complete Sort" on these algorithms
 End of tutorial, have fun playing around!
 
-### API
+### API (sub-sections sorted by importance)
+
 - The "Sort Algorithm" Radio allows the user to choose a sorting algorithm to run.
 
 - "Complete Sort" will sort the entire array.
